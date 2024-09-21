@@ -1,14 +1,36 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
-}
+
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    mod SomeStruct {
+        pub struct Server {
+            pub a: String,
+        }      
+    }
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
+    mod SomeStruct_AddHello {
+        use super::SomeStruct;
+
+        struct Request {
+            n: usize
+        }
+        type Response = String;
+
+        impl SomeStruct::Server {
+            pub async fn add_hello(&mut self, req: Request) -> Response {
+                self.__internal_add_hello(req.n)
+            }
+
+            async fn __internal_add_hello(&mut self, n: usize) -> Response {
+                self.a.push_str(&"Hello".repeat(n));
+                self.a.clone()
+            }
+            
+        }
+
+        trait ClientTrait {
+            
+        }
+
     }
 }
