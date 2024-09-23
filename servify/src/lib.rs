@@ -49,33 +49,28 @@ mod tests {
             }
         }
 
-        impl SomeStruct_AddHello::SendAddHello for Client {
-            async fn __internal_add_hello(
-                &self,
-                req: SomeStruct_AddHello::Request,
-            ) -> SomeStruct_AddHello::Response {
-                let (tx, rx) = tokio::sync::oneshot::channel();
-                self.tx.send(Message::AddHello(req, tx)).await.unwrap();
-                rx.await.unwrap()
-            }
+        pub async fn __internal_add_hello(
+            client: &Client,
+            req: SomeStruct_AddHello::Request,
+        ) -> SomeStruct_AddHello::Response {
+            let (tx, rx) = tokio::sync::oneshot::channel();
+            client.tx.send(Message::AddHello(req, tx)).await.unwrap();
+            rx.await.unwrap()
         }
 
-        impl SomeStruct_GetString::SendGetString for Client {
-            async fn __internal_get_string(&self) -> SomeStruct_GetString::Response {
-                let (tx, rx) = tokio::sync::oneshot::channel();
-                self.tx
-                    .send(Message::GetString(SomeStruct_GetString::Request {}, tx))
-                    .await
-                    .unwrap();
-                rx.await.unwrap()
-            }
+        pub async fn __internal_get_string(
+            client: &Client,
+            req: SomeStruct_GetString::Request,
+        ) -> SomeStruct_GetString::Response {
+            let (tx, rx) = tokio::sync::oneshot::channel();
+            client.tx.send(Message::GetString(req, tx)).await.unwrap();
+            rx.await.unwrap()
         }
     }
 
     #[allow(non_snake_case)]
     mod SomeStruct_AddHello {
         use super::SomeStruct;
-
         #[derive(Clone)]
         pub struct Request {
             n: usize,
@@ -93,11 +88,9 @@ mod tests {
             }
         }
 
-        pub trait SendAddHello {
-            async fn __internal_add_hello(&self, req: Request) -> Response;
-
-            async fn add_hello(&self, n: usize) -> Response {
-                self.__internal_add_hello(Request { n }).await
+        impl SomeStruct::Client {
+            pub async fn add_hello(&self, n: usize) -> Response {
+                SomeStruct::__internal_add_hello(self, Request { n }).await
             }
         }
     }
@@ -120,20 +113,15 @@ mod tests {
             }
         }
 
-        pub trait SendGetString {
-            async fn __internal_get_string(&self) -> Response;
-
-            async fn get_string(&self) -> Response {
-                self.__internal_get_string().await
+        impl SomeStruct::Client {
+            pub async fn get_string(&self) -> Response {
+                SomeStruct::__internal_get_string(self, Request {}).await
             }
         }
     }
 
     #[tokio::test]
     async fn test_manual_expanded() {
-        use crate::tests::SomeStruct_AddHello::SendAddHello;
-        use crate::tests::SomeStruct_GetString::SendGetString;
-
         let (rx, client) = SomeStruct::initiate_message_passing();
 
         tokio::spawn(async move {

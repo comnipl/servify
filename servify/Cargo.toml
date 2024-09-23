@@ -8,5 +8,5 @@ license = "MIT/Apache-2.0"
 tokio = { version = "1.40.0", features = ["sync"] }
 
 [dev-dependencies]
-tokio = { version = "1.40.0", features = ["sync", "rt", "macros"] }
+tokio = { version = "1.40.0", features = ["sync", "rt", "macros", "time"] }
 pretty_assertions = "1.4.1"
