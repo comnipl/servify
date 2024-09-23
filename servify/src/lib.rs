@@ -1,8 +1,12 @@
+#[servify_macro::export]
+fn a() {}
+
 #[cfg(test)]
 mod tests {
     use pretty_assertions::assert_eq;
 
     #[allow(non_snake_case)]
+    #[allow(unexpected_cfgs)]
     mod SomeStruct {
         use super::{SomeStruct_AddHello, SomeStruct_GetString};
 

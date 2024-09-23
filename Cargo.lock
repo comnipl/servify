@@ -125,13 +125,15 @@ name = "servify"
 version = "0.1.0"
 dependencies = [
  "pretty_assertions",
+ "servify_macro",
  "tokio",
 ]
 
 [[package]]
-name = "servify-macro"
+name = "servify_macro"
 version = "0.1.0"
 dependencies = [
+ "pretty_assertions",
  "proc-macro2",
  "quote",
  "syn",

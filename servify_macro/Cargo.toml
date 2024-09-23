@@ -1,5 +1,5 @@
 [package]
-name = "servify-macro"
+name = "servify_macro"
 version = "0.1.0"
 edition = "2021"
 
@@ -10,3 +10,6 @@ proc-macro = true
 proc-macro2 = "1.0.86"
 quote = "1.0.37"
 syn = "2.0.77"
+
+[dev-dependencies]
+pretty_assertions = "1.4.1"

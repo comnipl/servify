@@ -2,5 +2,5 @@
 resolver = "2"
 
 members = [
-    "servify", "servify-macro",
+    "servify", "servify_macro",
 ]
