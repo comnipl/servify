@@ -49,6 +49,7 @@ mod tests {
             }
         }
 
+        #[doc(hidden)]
         pub async fn __internal_add_hello(
             client: &Client,
             req: SomeStruct_AddHello::Request,
@@ -58,6 +59,7 @@ mod tests {
             rx.await.unwrap()
         }
 
+        #[doc(hidden)]
         pub async fn __internal_get_string(
             client: &Client,
             req: SomeStruct_GetString::Request,
