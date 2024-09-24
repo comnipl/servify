@@ -3,7 +3,7 @@ use pretty_assertions::assert_eq;
 #[allow(non_snake_case)]
 #[allow(unexpected_cfgs)]
 mod SomeStruct {
-    use super::{SomeStruct_AddHello, SomeStruct_GetString};
+    use super::some_other::{SomeStruct_AddHello, SomeStruct_GetString};
 
     pub struct Server {
         pub a: String,
@@ -69,54 +69,57 @@ mod SomeStruct {
     }
 }
 
-#[allow(non_snake_case)]
-mod SomeStruct_AddHello {
-    use super::SomeStruct;
-    #[derive(Clone)]
-    pub struct Request {
-        n: usize,
-    }
-    pub type Response = String;
+mod some_other {
+    use crate::tests::expanded_1::SomeStruct;
 
-    impl SomeStruct::Server {
-        pub async fn add_hello(&mut self, req: Request) -> Response {
-            self.__internal_add_hello(req.n).await
+    #[allow(non_snake_case)]
+    pub mod SomeStruct_AddHello {
+        #[derive(Clone)]
+        pub struct Request {
+            n: usize,
+        }
+        pub type Response = String;
+
+        impl super::SomeStruct::Server {
+            pub async fn add_hello(&mut self, req: Request) -> Response {
+                self.__internal_add_hello(req.n).await
+            }
+
+            async fn __internal_add_hello(&mut self, n: usize) -> Response {
+                self.a.push_str(&"Hello".repeat(n));
+                self.a.clone()
+            }
         }
 
-        async fn __internal_add_hello(&mut self, n: usize) -> Response {
-            self.a.push_str(&"Hello".repeat(n));
-            self.a.clone()
-        }
-    }
-
-    impl SomeStruct::Client {
-        pub async fn add_hello(&self, n: usize) -> Response {
-            SomeStruct::__internal_add_hello(self, Request { n }).await
-        }
-    }
-}
-
-#[allow(non_snake_case)]
-mod SomeStruct_GetString {
-    use super::SomeStruct;
-
-    #[derive(Clone)]
-    pub struct Request {}
-    pub type Response = String;
-
-    impl SomeStruct::Server {
-        pub async fn get_string(&mut self, _req: Request) -> Response {
-            self.__internal_get_string().await
-        }
-
-        async fn __internal_get_string(&mut self) -> Response {
-            self.a.clone()
+        impl super::SomeStruct::Client {
+            pub async fn add_hello(&self, n: usize) -> Response {
+                super::SomeStruct::__internal_add_hello(self, Request { n }).await
+            }
         }
     }
 
-    impl SomeStruct::Client {
-        pub async fn get_string(&self) -> Response {
-            SomeStruct::__internal_get_string(self, Request {}).await
+    #[allow(non_snake_case)]
+    pub mod SomeStruct_GetString {
+        use super::SomeStruct;
+
+        #[derive(Clone)]
+        pub struct Request {}
+        pub type Response = String;
+
+        impl SomeStruct::Server {
+            pub async fn get_string(&mut self, _req: Request) -> Response {
+                self.__internal_get_string().await
+            }
+
+            async fn __internal_get_string(&mut self) -> Response {
+                self.a.clone()
+            }
+        }
+
+        impl SomeStruct::Client {
+            pub async fn get_string(&self) -> Response {
+                SomeStruct::__internal_get_string(self, Request {}).await
+            }
         }
     }
 }

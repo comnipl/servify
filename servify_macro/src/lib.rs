@@ -1,4 +1,5 @@
 mod export;
+mod util;
 use export::impl_export;
 
 #[proc_macro_attribute]
