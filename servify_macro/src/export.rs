@@ -5,8 +5,9 @@ use syn::{
     parse::{ParseStream, Parser},
     punctuated::Punctuated,
     spanned::Spanned,
-    Error, Expr, ExprField, ExprPath, Field, FieldMutability, FieldsNamed, FnArg, Ident, ImplItem,
-    ImplItemFn, ItemImpl, Member, Pat, PatType, Result, Token, TypePath, Visibility,
+    Error, Expr, ExprField, ExprPath, Field, FieldMutability, FieldValue, FieldsNamed, FnArg,
+    Ident, ImplItem, ImplItemFn, ItemImpl, Member, Pat, PatType, Result, Token, TypePath,
+    Visibility,
 };
 
 use crate::util::{return_type_ext::ReturnTypeExt, type_path_ext::TypePathExt};
@@ -70,10 +71,20 @@ fn parse_method(input: &ImplItemFn, parent: &ExportParent) -> Result<TokenStream
     let internal_fn_name = Ident::new(&format!("__internal_{}", fn_name), Span::call_site());
 
     let sig = input.sig.inputs.clone();
+
+    let sig_without_self = sig
+        .clone()
+        .into_iter()
+        .filter(|i| match i {
+            FnArg::Typed(_) => true,
+            FnArg::Receiver(_) => false,
+        })
+        .collect::<Punctuated<FnArg, Token![,]>>();
+
     let body = input.block.clone();
     let response = input.sig.output.clone().to_type();
 
-    let request_sig = sig
+    let request_sig = sig_without_self
         .clone()
         .into_iter()
         .filter_map(|i| match i {
@@ -89,18 +100,24 @@ fn parse_method(input: &ImplItemFn, parent: &ExportParent) -> Result<TokenStream
 
     let struct_block = FieldsNamed {
         brace_token: Default::default(),
-        named: Punctuated::from_iter(request_sig.clone().into_iter().map(|(ident, ty)| Field {
-            attrs: Default::default(),
-            vis: Visibility::Inherited,
-            ident: Some(ident),
-            colon_token: Default::default(),
-            ty,
-            mutability: FieldMutability::None,
-        })),
+        named: request_sig
+            .clone()
+            .into_iter()
+            .map(|(ident, ty)| Field {
+                attrs: Default::default(),
+                vis: Visibility::Inherited,
+                ident: Some(ident),
+                colon_token: Default::default(),
+                ty,
+                mutability: FieldMutability::None,
+            })
+            .collect(),
     };
 
-    let call_server_args: Punctuated<ExprField, Token![,]> =
-        Punctuated::from_iter(request_sig.clone().into_iter().map(|(ident, _)| ExprField {
+    let call_server_args: Punctuated<ExprField, Token![,]> = request_sig
+        .clone()
+        .into_iter()
+        .map(|(ident, _)| ExprField {
             attrs: Default::default(),
             member: Member::Named(Ident::new(&ident.to_string(), Span::call_site())),
             dot_token: Default::default(),
@@ -109,7 +126,23 @@ fn parse_method(input: &ImplItemFn, parent: &ExportParent) -> Result<TokenStream
                 qself: None,
                 path: Ident::new("req", Span::call_site()).into(),
             })),
-        }));
+        })
+        .collect();
+
+    let call_client_args: Punctuated<FieldValue, Token![,]> = request_sig
+        .clone()
+        .into_iter()
+        .map(|(ident, _)| FieldValue {
+            attrs: Default::default(),
+            member: Member::Named(Ident::new(&ident.to_string(), Span::call_site())),
+            colon_token: Default::default(),
+            expr: Expr::Path(ExprPath {
+                attrs: Default::default(),
+                qself: None,
+                path: Ident::new(&ident.to_string(), Span::call_site()).into(),
+            }),
+        })
+        .collect();
 
     Ok(quote! {
         #[allow(non_camel_case_types)]
@@ -124,8 +157,14 @@ fn parse_method(input: &ImplItemFn, parent: &ExportParent) -> Result<TokenStream
                 self.#internal_fn_name(#call_server_args).await
             }
             async fn #internal_fn_name(#sig) -> #response_name #body
-
         }
+
+        impl #client_path {
+            pub async fn #fn_name(&self, #sig_without_self) -> #response_name {
+                #mod_path::#internal_fn_name(self, #request_name { #call_client_args }).await
+            }
+        }
+
         pub mod #mod_name {
             pub use super::{#request_name as Request, #response_name as Response};
         }
@@ -192,6 +231,13 @@ mod tests {
                         self.count
                     }
                 }
+
+                impl SomeStruct::Client {
+                    pub async fn increment(&self, count: u32) -> __increment_response {
+                        SomeStruct::__internal_increment(self, __increment_request { count }).await
+                    }
+                }
+
                 pub mod some_struct_increment {
                     pub use super::{__increment_request as Request, __increment_response as Response};
                 }
