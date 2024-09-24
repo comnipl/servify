@@ -3,10 +3,11 @@ use pretty_assertions::assert_eq;
 #[allow(non_snake_case)]
 #[allow(unexpected_cfgs)]
 mod SomeStruct {
-    use super::{SomeStruct_AddHello, SomeStruct_GetString};
+
+    use super::some_other::some_struct_increment;
 
     pub struct Server {
-        pub a: String,
+        pub count: u32,
     }
 
     #[derive(Clone)]
@@ -15,13 +16,9 @@ mod SomeStruct {
     }
 
     pub enum Message {
-        AddHello(
-            SomeStruct_AddHello::Request,
-            tokio::sync::oneshot::Sender<SomeStruct_AddHello::Response>,
-        ),
-        GetString(
-            SomeStruct_GetString::Request,
-            tokio::sync::oneshot::Sender<SomeStruct_GetString::Response>,
+        Increment(
+            some_struct_increment::Request,
+            tokio::sync::oneshot::Sender<some_struct_increment::Response>,
         ),
     }
 
@@ -35,12 +32,8 @@ mod SomeStruct {
         pub async fn listen(&mut self, mut rx: tokio::sync::mpsc::Receiver<Message>) {
             while let Some(msg) = rx.recv().await {
                 match msg {
-                    Message::AddHello(req, tx) => {
-                        let res = self.add_hello(req).await;
-                        tx.send(res).unwrap();
-                    }
-                    Message::GetString(req, tx) => {
-                        let res = self.get_string(req).await;
+                    Message::Increment(req, tx) => {
+                        let res = self.increment(req).await;
                         tx.send(res).unwrap();
                     }
                 }
@@ -49,75 +42,46 @@ mod SomeStruct {
     }
 
     #[doc(hidden)]
-    pub async fn __internal_add_hello(
+    pub async fn __internal_increment(
         client: &Client,
-        req: SomeStruct_AddHello::Request,
-    ) -> SomeStruct_AddHello::Response {
+        req: some_struct_increment::Request,
+    ) -> some_struct_increment::Response {
         let (tx, rx) = tokio::sync::oneshot::channel();
-        client.tx.send(Message::AddHello(req, tx)).await.unwrap();
-        rx.await.unwrap()
-    }
-
-    #[doc(hidden)]
-    pub async fn __internal_get_string(
-        client: &Client,
-        req: SomeStruct_GetString::Request,
-    ) -> SomeStruct_GetString::Response {
-        let (tx, rx) = tokio::sync::oneshot::channel();
-        client.tx.send(Message::GetString(req, tx)).await.unwrap();
+        client.tx.send(Message::Increment(req, tx)).await.unwrap();
         rx.await.unwrap()
     }
 }
 
-#[allow(non_snake_case)]
-mod SomeStruct_AddHello {
-    use super::SomeStruct;
+mod some_other {
+    use crate::tests::expanded_1::SomeStruct;
+
+    #[allow(non_camel_case_types)]
+    pub type __increment_response = u32;
+    #[allow(non_camel_case_types)]
     #[derive(Clone)]
-    pub struct Request {
-        n: usize,
+    pub struct __increment_request {
+        count: u32,
     }
-    pub type Response = String;
 
     impl SomeStruct::Server {
-        pub async fn add_hello(&mut self, req: Request) -> Response {
-            self.__internal_add_hello(req.n).await
+        pub async fn increment(&mut self, req: __increment_request) -> __increment_response {
+            self.__internal_increment(req.count).await
         }
 
-        async fn __internal_add_hello(&mut self, n: usize) -> Response {
-            self.a.push_str(&"Hello".repeat(n));
-            self.a.clone()
+        async fn __internal_increment(&mut self, count: u32) -> __increment_response {
+            self.count += count;
+            self.count
         }
     }
 
     impl SomeStruct::Client {
-        pub async fn add_hello(&self, n: usize) -> Response {
-            SomeStruct::__internal_add_hello(self, Request { n }).await
-        }
-    }
-}
-
-#[allow(non_snake_case)]
-mod SomeStruct_GetString {
-    use super::SomeStruct;
-
-    #[derive(Clone)]
-    pub struct Request {}
-    pub type Response = String;
-
-    impl SomeStruct::Server {
-        pub async fn get_string(&mut self, _req: Request) -> Response {
-            self.__internal_get_string().await
-        }
-
-        async fn __internal_get_string(&mut self) -> Response {
-            self.a.clone()
+        pub async fn increment(&self, count: u32) -> __increment_response {
+            SomeStruct::__internal_increment(self, __increment_request { count }).await
         }
     }
 
-    impl SomeStruct::Client {
-        pub async fn get_string(&self) -> Response {
-            SomeStruct::__internal_get_string(self, Request {}).await
-        }
+    pub mod some_struct_increment {
+        pub use super::{__increment_request as Request, __increment_response as Response};
     }
 }
 
@@ -126,22 +90,9 @@ async fn test_manual_expanded() {
     let (rx, client) = SomeStruct::initiate_message_passing();
 
     tokio::spawn(async move {
-        SomeStruct::Server {
-            a: String::from("Servify, "),
-        }
-        .listen(rx)
-        .await;
+        SomeStruct::Server { count: 3 }.listen(rx).await;
     });
 
-    assert_eq!(client.get_string().await, "Servify, ");
-    assert_eq!(client.add_hello(3).await, "Servify, HelloHelloHello");
-    assert_eq!(client.get_string().await, "Servify, HelloHelloHello");
-    assert_eq!(
-        client.add_hello(2).await,
-        "Servify, HelloHelloHelloHelloHello"
-    );
-    assert_eq!(
-        client.get_string().await,
-        "Servify, HelloHelloHelloHelloHello"
-    );
+    assert_eq!(client.increment(5).await, 8);
+    assert_eq!(client.increment(3).await, 11);
 }
