@@ -22,14 +22,14 @@ mod SomeStruct {
         ),
     }
 
-    pub fn initiate_message_passing() -> (tokio::sync::mpsc::Receiver<Message>, Client) {
-        let (tx, rx) = tokio::sync::mpsc::channel(64);
+    pub fn initiate_message_passing() -> (::tokio::sync::mpsc::Receiver<Message>, Client) {
+        let (tx, rx) = ::tokio::sync::mpsc::channel(64);
         let client = Client { tx };
         (rx, client)
     }
 
     impl Server {
-        pub async fn listen(&mut self, mut rx: tokio::sync::mpsc::Receiver<Message>) {
+        pub async fn listen(&mut self, mut rx: ::tokio::sync::mpsc::Receiver<Message>) {
             while let Some(msg) = rx.recv().await {
                 match msg {
                     Message::Increment(req, tx) => {
@@ -46,7 +46,7 @@ mod SomeStruct {
         client: &Client,
         req: some_struct_increment::Request,
     ) -> some_struct_increment::Response {
-        let (tx, rx) = tokio::sync::oneshot::channel();
+        let (tx, rx) = ::tokio::sync::oneshot::channel();
         client.tx.send(Message::Increment(req, tx)).await.unwrap();
         rx.await.unwrap()
     }
