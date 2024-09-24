@@ -1,7 +1,7 @@
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{
-    parse::{ParseStream, Parser}, spanned::Spanned, Error, ImplItem, ImplItemFn, ItemImpl, Result
+    parse::{ParseStream, Parser}, spanned::Spanned, Error, ImplItem, ImplItemFn, ItemImpl, Result, TypePath
 };
 
 pub(crate) fn impl_export(_attrs: TokenStream, item: TokenStream) -> TokenStream {
@@ -9,11 +9,28 @@ pub(crate) fn impl_export(_attrs: TokenStream, item: TokenStream) -> TokenStream
         .unwrap_or_else(Error::into_compile_error)
 }
 
+struct ExportParent {
+    mod_path: TypePath,
+}
+
 fn parse(input: ParseStream) -> Result<TokenStream> {
     let top: ItemImpl = input.parse()?;
+    let mod_path = match *top.self_ty {
+        syn::Type::Path(path) => {
+            path   
+        }
+        _ => Err(Error::new(
+            top.self_ty.span(),
+            "servify_macro::export can only be used on impl blocks with a TypePath.",
+        ))?,
+    };
+
+    let parent = ExportParent {
+        mod_path
+    };
     top.items.iter()
         .map(|item| match item {
-            ImplItem::Fn(item) => parse_method(item),
+            ImplItem::Fn(item) => parse_method(item, &parent),
             item => Err(Error::new(
                 item.span(),
                 format!("servify_macro::export cannot handle implementations other than functions."),
@@ -22,9 +39,10 @@ fn parse(input: ParseStream) -> Result<TokenStream> {
         .collect()
 }
 
-fn parse_method(input: &ImplItemFn) -> Result<TokenStream> {
+fn parse_method(input: &ImplItemFn, parent: &ExportParent) -> Result<TokenStream> {
+    let mod_path = parent.mod_path.clone();
     let name = input.sig.ident.clone();
-    Ok(quote! { #name })
+    Ok(quote! { #mod_path - #name })
 }
 
 #[cfg(test)]
@@ -66,7 +84,7 @@ mod tests {
                 }
             }).to_string(),
             quote!{
-                a b
+                A - a A - b
             }.to_string()
         };
     }
