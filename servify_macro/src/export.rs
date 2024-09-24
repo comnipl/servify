@@ -3,11 +3,13 @@ use proc_macro2::{Span, TokenStream};
 use quote::quote;
 use syn::{
     parse::{ParseStream, Parser},
+    punctuated::Punctuated,
     spanned::Spanned,
-    Error, Ident, ImplItem, ImplItemFn, ItemImpl, Result, TypePath,
+    Error, Expr, ExprField, ExprPath, Field, FieldMutability, FieldsNamed, FnArg, Ident, ImplItem,
+    ImplItemFn, ItemImpl, Member, Pat, PatType, Result, Token, TypePath, Visibility,
 };
 
-use crate::util::{return_type_ext::ReturnTypeExt, to_super::to_super, type_path_ext::TypePathExt};
+use crate::util::{return_type_ext::ReturnTypeExt, type_path_ext::TypePathExt};
 
 pub(crate) fn impl_export(_attrs: TokenStream, item: TokenStream) -> TokenStream {
     parse.parse2(item).unwrap_or_else(Error::into_compile_error)
@@ -71,15 +73,60 @@ fn parse_method(input: &ImplItemFn, parent: &ExportParent) -> Result<TokenStream
     let body = input.block.clone();
     let response = input.sig.output.clone().to_type();
 
+    let request_sig = sig
+        .clone()
+        .into_iter()
+        .filter_map(|i| match i {
+            FnArg::Typed(PatType { pat, ty, .. }) => match *pat {
+                Pat::Ident(ident) => {
+                    Some((Ident::new(&ident.ident.to_string(), Span::call_site()), *ty))
+                }
+                _ => None,
+            },
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+
+    let struct_block = FieldsNamed {
+        brace_token: Default::default(),
+        named: Punctuated::from_iter(request_sig.clone().into_iter().map(|(ident, ty)| Field {
+            attrs: Default::default(),
+            vis: Visibility::Inherited,
+            ident: Some(ident),
+            colon_token: Default::default(),
+            ty,
+            mutability: FieldMutability::None,
+        })),
+    };
+
+    let call_server_args: Punctuated<ExprField, Token![,]> =
+        Punctuated::from_iter(request_sig.clone().into_iter().map(|(ident, _)| ExprField {
+            attrs: Default::default(),
+            member: Member::Named(Ident::new(&ident.to_string(), Span::call_site())),
+            dot_token: Default::default(),
+            base: Box::new(Expr::Path(ExprPath {
+                attrs: Default::default(),
+                qself: None,
+                path: Ident::new("req", Span::call_site()).into(),
+            })),
+        }));
+
     Ok(quote! {
+        #[allow(non_camel_case_types)]
         type #response_name = #response;
+
+        #[allow(non_camel_case_types)]
+        #[derive(Clone)]
+        pub struct #request_name #struct_block
+
         impl #server_path {
             pub async fn #fn_name(&mut self, req: Request) -> #response_name {
+                self.#internal_fn_name(#call_server_args).await
             }
             async fn #internal_fn_name(#sig) -> #response_name #body
 
         }
-        mod #mod_name {
+        pub mod #mod_name {
             pub use super::{#request_name as Request, #response_name as Response};
         }
     })
@@ -118,25 +165,35 @@ mod tests {
     fn test_export() {
         assert_eq! {
             impl_export(quote!{}, quote!{
-                impl TestStruct {
-                    fn add_hello(&mut self, n: usize) -> String {
-                        self.a.push_str(&"Hello".repeat(n));
-                        self.a.clone()
+                impl SomeStruct {
+                    fn increment(&mut self, count: u32) -> u32 {
+                        self.count += count;
+                        self.count
                     }
                 }
             }).to_string(),
+
             quote!{
-                type __add_hello_response = String;
-                impl TestStruct::Server {
-                    pub async fn add_hello(&mut self, req: Request) -> __add_hello_response {
+                #[allow(non_camel_case_types)]
+                type __increment_response = u32;
+
+                #[allow(non_camel_case_types)]
+                #[derive(Clone)]
+                pub struct __increment_request {
+                    count: u32
+                }
+
+                impl SomeStruct::Server {
+                    pub async fn increment(&mut self, req: Request) -> __increment_response {
+                        self.__internal_increment(req.count).await
                     }
-                    async fn __internal_add_hello(&mut self, n: usize) -> __add_hello_response {
-                        self.a.push_str(&"Hello".repeat(n));
-                        self.a.clone()
+                    async fn __internal_increment(&mut self, count: u32) -> __increment_response {
+                        self.count += count;
+                        self.count
                     }
                 }
-                mod test_struct_add_hello {
-                    pub use super::{__add_hello_request as Request, __add_hello_response as Response};
+                pub mod some_struct_increment {
+                    pub use super::{__increment_request as Request, __increment_response as Response};
                 }
             }.to_string()
         };
