@@ -1,7 +1,5 @@
 mod expanded_1;
 
-
-
 #[servify_macro::export]
 impl A {
     fn increment(&mut self, count: u32) -> u32 {
@@ -13,11 +11,10 @@ impl A {
 #[servify_macro::service(
     impls = (
         a_increment
-    )
+    ),
+    a = b
 )]
-struct B {
-
-}
+struct B {}
 
 mod A {
     use super::a_increment;
@@ -46,5 +43,4 @@ mod A {
         client.tx.send(Message::Increment(req, tx)).await.unwrap();
         rx.await.unwrap()
     }
-
 }
