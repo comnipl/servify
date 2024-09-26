@@ -64,7 +64,9 @@ impl Parse for ServiceParentAttrs {
 }
 
 struct ImplTokens {
-    internal_function: TokenStream
+    internal_function: TokenStream,
+    enum_element: TokenStream,
+    server_arm: TokenStream,
 }
 
 impl ServiceParentAttrs {
@@ -96,15 +98,36 @@ impl ServiceParentAttrs {
                     }
                 };
 
-                ImplTokens { internal_function }
+                let enum_element = quote! {
+                    #enum_name(
+                        #request_path,
+                        ::tokio::sync::oneshot::Sender<#response_path>,
+                    ),
+                };
+                
+                let server_arm = quote! {
+                    Message::#enum_name(req, tx) => {
+                        let res = self.#fn_name(req).await;
+                        tx.send(res).unwrap();
+                    },
+                };
+
+                ImplTokens { internal_function, enum_element, server_arm }
             })
             .collect();
 
         let internal_functions: TokenStream = tokens.iter().map(|t| t.internal_function.clone()).collect();
+        let enum_elements: TokenStream = tokens.iter().map(|t| t.enum_element.clone()).collect();
+        let server_arms: TokenStream = tokens.iter().map(|t| t.server_arm.clone()).collect();
 
         Ok(quote! {
             #[allow(non_snake_case)]
             mod #mod_name {
+
+                pub enum Message {
+                    #enum_elements
+                }
+
                 pub struct Server #server_items
 
                 #[derive(Clone)]
@@ -112,7 +135,23 @@ impl ServiceParentAttrs {
                     tx: ::tokio::sync::mpsc::Sender<Message>,
                 }
 
+                impl Server {
+                    pub async fn listen(&mut self, mut rx: ::tokio::sync::mpsc::Receiver<Message>) {
+                        while let Some(msg) = rx.recv().await {
+                            match msg {
+                                #server_arms
+                            }
+                        }
+                    }
+                }
+        
                 #internal_functions
+
+                pub fn initiate_message_passing(buffer: usize) -> (::tokio::sync::mpsc::Receiver<Message>, Client) {
+                    let (tx, rx) = ::tokio::sync::mpsc::channel(buffer);
+                    let client = Client { tx };
+                    (rx, client)
+                }
             }
         })
     }
@@ -128,7 +167,7 @@ mod tests {
     fn single() {
         assert_eq! {
             impl_service(quote!{
-                impls = [increment],
+                impls = [some_struct_increment],
             }, quote!{
                 struct SomeStruct {
                     pub count: u32,
@@ -137,6 +176,13 @@ mod tests {
             quote!{
                 #[allow(non_snake_case)]
                 mod SomeStruct {
+                    pub enum Message {
+                        Increment(
+                            super::some_struct_increment::Request,
+                            ::tokio::sync::oneshot::Sender<super::some_struct_increment::Response>,
+                        ),
+                    }
+
                     pub struct Server {
                         pub count: u32,
                     }
@@ -146,14 +192,33 @@ mod tests {
                         tx: ::tokio::sync::mpsc::Sender<Message>,
                     }
 
+                    impl Server {
+                        pub async fn listen(&mut self, mut rx: ::tokio::sync::mpsc::Receiver<Message>) {
+                            while let Some(msg) = rx.recv().await {
+                                match msg {
+                                    Message::Increment(req, tx) => {
+                                        let res = self.increment(req).await;
+                                        tx.send(res).unwrap();
+                                    },
+                                }
+                            }
+                        }
+                    }
+
                     #[doc(hidden)]
                     pub async fn __internal_increment(
                         client: &Client,
-                        req: super::increment::Request,
-                    ) -> super::increment::Response {
+                        req: super::some_struct_increment::Request,
+                    ) -> super::some_struct_increment::Response {
                         let (tx, rx) = ::tokio::sync::oneshot::channel();
                         client.tx.send(Message::Increment(req, tx)).await.unwrap();
                         rx.await.unwrap()
+                    }
+
+                    pub fn initiate_message_passing(buffer: usize) -> (::tokio::sync::mpsc::Receiver<Message>, Client) {
+                        let (tx, rx) = ::tokio::sync::mpsc::channel(buffer);
+                        let client = Client { tx };
+                        (rx, client)
                     }
                 }
             }.to_string(),
