@@ -8,14 +8,6 @@ impl A {
     }
 }
 
-#[servify_macro::service(
-    impls = (
-        a_increment
-    ),
-    a = b
-)]
-struct B {}
-
 mod A {
     use super::a_increment;
 
