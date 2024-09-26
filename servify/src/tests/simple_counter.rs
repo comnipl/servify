@@ -5,7 +5,7 @@
     ]
 )]
 struct Counter {
-    pub count: u32
+    pub count: u32,
 }
 
 #[servify_macro::export]
@@ -22,11 +22,11 @@ impl Counter {
 #[tokio::test]
 async fn count_up() {
     let (rx, client) = Counter::initiate_message_passing(32);
-    
+
     tokio::spawn(async move {
         Counter::Server { count: 3 }.listen(rx).await;
     });
-    
+
     assert_eq!(client.get_value().await, 3);
     assert_eq!(client.increment_and_get(5).await, 8);
     assert_eq!(client.get_value().await, 8);
