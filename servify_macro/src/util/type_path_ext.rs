@@ -4,6 +4,7 @@ use syn::{Ident, PathArguments, PathSegment, TypePath};
 pub(crate) trait TypePathExt {
     fn with_inserted_ident(self, ident: &str, index: usize) -> TypePath;
     fn with_trail_ident(self, ident: &str) -> TypePath;
+    fn to_super(self) -> TypePath;
 }
 
 impl TypePathExt for TypePath {
@@ -23,6 +24,24 @@ impl TypePathExt for TypePath {
             arguments: PathArguments::None,
         });
         self
+    }
+
+    fn to_super(self) -> TypePath {
+        if self.path.leading_colon.is_some() {
+            return self;
+        }
+
+        if self
+            .path
+            .segments
+            .first()
+            .map(|e| e.ident == "crate")
+            .unwrap_or(false)
+        {
+            return self;
+        }
+
+        self.with_inserted_ident("super", 0)
     }
 }
 
@@ -59,6 +78,64 @@ mod tests {
             quote! {
                 std::Entry::collections::HashMap
             }.to_token_stream().to_string()
+        }
+    }
+
+    #[test]
+    fn to_super_relative_path() {
+        assert_eq! {
+            parse2::<TypePath>(quote! {
+                tests::expanded_1::SomeStruct
+            })
+            .unwrap()
+            .to_super()
+            .to_token_stream().to_string(),
+            quote! {
+                super::tests::expanded_1::SomeStruct
+            }.to_string()
+        }
+    }
+
+    #[test]
+    fn to_super_absolute_path() {
+        assert_eq! {
+                parse2::<TypePath>(quote! {
+                    ::tests::expanded_1::SomeStruct
+                })
+                .unwrap()
+            .to_super().to_token_stream().to_string(),
+            quote! {
+                ::tests::expanded_1::SomeStruct
+            }.to_string()
+        }
+    }
+
+    #[test]
+    fn to_super_crate_absolute_path() {
+        assert_eq! {
+                parse2::<TypePath>(quote! {
+                    crate::tests::expanded_1::SomeStruct
+                })
+                .unwrap()
+            .to_super().to_token_stream().to_string(),
+            quote! {
+                crate::tests::expanded_1::SomeStruct
+            }.to_string()
+        }
+    }
+
+    #[test]
+    fn to_super_ident() {
+        assert_eq! {
+                parse2::<TypePath>(quote! {
+                    SomeStruct
+                })
+                .unwrap()
+                .to_super()
+            .to_token_stream().to_string(),
+            quote! {
+                super::SomeStruct
+            }.to_string()
         }
     }
 }

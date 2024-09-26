@@ -146,14 +146,14 @@ fn parse_method(input: &ImplItemFn, parent: &ExportParent) -> Result<TokenStream
 
     Ok(quote! {
         #[allow(non_camel_case_types)]
-        type #response_name = #response;
+        pub type #response_name = #response;
 
         #[allow(non_camel_case_types)]
         #[derive(Clone)]
         pub struct #request_name #struct_block
 
         impl #server_path {
-            pub async fn #fn_name(&mut self, req: Request) -> #response_name {
+            pub async fn #fn_name(&mut self, req: #request_name) -> #response_name {
                 self.#internal_fn_name(#call_server_args).await
             }
             async fn #internal_fn_name(#sig) -> #response_name #body
@@ -214,7 +214,7 @@ mod tests {
 
             quote!{
                 #[allow(non_camel_case_types)]
-                type __increment_response = u32;
+                pub type __increment_response = u32;
 
                 #[allow(non_camel_case_types)]
                 #[derive(Clone)]
@@ -223,7 +223,7 @@ mod tests {
                 }
 
                 impl SomeStruct::Server {
-                    pub async fn increment(&mut self, req: Request) -> __increment_response {
+                    pub async fn increment(&mut self, req: __increment_request) -> __increment_response {
                         self.__internal_increment(req.count).await
                     }
                     async fn __internal_increment(&mut self, count: u32) -> __increment_response {
