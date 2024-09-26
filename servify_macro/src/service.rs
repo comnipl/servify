@@ -3,25 +3,20 @@ use std::vec;
 use case::CaseExt;
 use proc_macro2::TokenStream;
 use quote::quote;
-use quote::ToTokens;
 use syn::bracketed;
-use syn::parenthesized;
 use syn::parse::Parse;
 use syn::parse::ParseStream;
 use syn::parse2;
 use syn::punctuated::Punctuated;
 use syn::token::Comma;
-use syn::token::Struct;
 use syn::Error;
 use syn::Ident;
 use syn::ItemStruct;
-use syn::Path;
 use syn::Result;
 use syn::Token;
 use syn::TypePath;
 
 use crate::util::type_path_ext::TypePathExt;
-
 
 pub(crate) fn impl_service(attrs: TokenStream, item: TokenStream) -> TokenStream {
     parse2::<ServiceParentAttrs>(attrs)
@@ -46,7 +41,6 @@ impl Parse for ServiceParentAttrs {
                     let _paren = bracketed!(group in input);
                     let paths = Punctuated::<TypePath, Comma>::parse_terminated(&group)?;
                     impls.extend(paths);
-
                 }
                 _ => {
                     return Err(Error::new(
@@ -72,15 +66,29 @@ struct ImplTokens {
 impl ServiceParentAttrs {
     fn parse_item(self, item: TokenStream) -> Result<TokenStream> {
         let server: ItemStruct = parse2(item)?;
-        
+
         let mod_name = server.ident.clone();
         let server_items = server.fields;
 
-        let tokens: Vec<ImplTokens> = self.impls.clone().into_iter()
+        let tokens: Vec<ImplTokens> = self
+            .impls
+            .clone()
+            .into_iter()
             .map(|path| {
                 let fn_name = path.path.segments.last().unwrap().ident.clone();
-                let internal_fn_name = Ident::new(&format!("__internal_{}", fn_name.to_string()), fn_name.span());
-                
+                let fn_name = Ident::new(
+                    fn_name
+                        .to_string()
+                        .strip_prefix(&mod_name.to_string().to_snake())
+                        .unwrap()
+                        .trim_start_matches("_"),
+                    fn_name.span(),
+                );
+                let internal_fn_name = Ident::new(
+                    &format!("__internal_{}", fn_name),
+                    fn_name.span(),
+                );
+
                 let enum_name = Ident::new(&fn_name.to_string().to_camel(), fn_name.span());
 
                 let request_path = path.clone().to_super().with_trail_ident("Request");
@@ -104,7 +112,7 @@ impl ServiceParentAttrs {
                         ::tokio::sync::oneshot::Sender<#response_path>,
                     ),
                 };
-                
+
                 let server_arm = quote! {
                     Message::#enum_name(req, tx) => {
                         let res = self.#fn_name(req).await;
@@ -112,11 +120,16 @@ impl ServiceParentAttrs {
                     },
                 };
 
-                ImplTokens { internal_function, enum_element, server_arm }
+                ImplTokens {
+                    internal_function,
+                    enum_element,
+                    server_arm,
+                }
             })
             .collect();
 
-        let internal_functions: TokenStream = tokens.iter().map(|t| t.internal_function.clone()).collect();
+        let internal_functions: TokenStream =
+            tokens.iter().map(|t| t.internal_function.clone()).collect();
         let enum_elements: TokenStream = tokens.iter().map(|t| t.enum_element.clone()).collect();
         let server_arms: TokenStream = tokens.iter().map(|t| t.server_arm.clone()).collect();
 
@@ -144,7 +157,7 @@ impl ServiceParentAttrs {
                         }
                     }
                 }
-        
+
                 #internal_functions
 
                 pub fn initiate_message_passing(buffer: usize) -> (::tokio::sync::mpsc::Receiver<Message>, Client) {

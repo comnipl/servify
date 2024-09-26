@@ -25,12 +25,12 @@ impl TypePathExt for TypePath {
         });
         self
     }
-    
+
     fn to_super(self) -> TypePath {
         if self.path.leading_colon.is_some() {
             return self;
         }
-    
+
         if self
             .path
             .segments
@@ -40,10 +40,9 @@ impl TypePathExt for TypePath {
         {
             return self;
         }
-    
+
         self.with_inserted_ident("super", 0)
     }
-    
 }
 
 #[cfg(test)]
@@ -139,5 +138,4 @@ mod tests {
             }.to_string()
         }
     }
-
 }
