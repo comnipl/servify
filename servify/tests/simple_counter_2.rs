@@ -1,9 +1,9 @@
 #[servify_macro::service(
     impls = [
-        simple_counter_increment_and_get,
-        simple_counter_get,
-        simple_counter_set,
-        simple_counter_reset
+        SimpleCounter_increment_and_get,
+        SimpleCounter_get,
+        SimpleCounter_set,
+        SimpleCounter_reset,
     ]
 )]
 struct SimpleCounter {
