@@ -17,8 +17,8 @@ mod SomeStruct {
 
     pub enum Message {
         Increment(
-            <SomeStruct_increment as crate::ServifyExport>::Request,
-            tokio::sync::oneshot::Sender<<SomeStruct_increment as crate::ServifyExport>::Response>,
+            <SomeStruct_increment as ::servify::ServifyExport>::Request,
+            tokio::sync::oneshot::Sender<<SomeStruct_increment as ::servify::ServifyExport>::Response>,
         ),
     }
 
@@ -44,8 +44,8 @@ mod SomeStruct {
     #[doc(hidden)]
     pub async fn __internal_increment(
         client: &Client,
-        req: <SomeStruct_increment as crate::ServifyExport>::Request,
-    ) -> <SomeStruct_increment as crate::ServifyExport>::Response {
+        req: <SomeStruct_increment as ::servify::ServifyExport>::Request,
+    ) -> <SomeStruct_increment as ::servify::ServifyExport>::Response {
         let (tx, rx) = ::tokio::sync::oneshot::channel();
         client.tx.send(Message::Increment(req, tx)).await.unwrap();
         rx.await.unwrap()
@@ -53,7 +53,7 @@ mod SomeStruct {
 }
 
 mod some_other {
-    use crate::tests::expanded_2::SomeStruct;
+    use super::SomeStruct;
 
     #[allow(non_camel_case_types)]
     pub type __increment_response = u32;
@@ -82,7 +82,7 @@ mod some_other {
 
     #[allow(non_camel_case_types)]
     pub struct SomeStruct_increment ();
-    impl crate::ServifyExport for SomeStruct_increment {
+    impl ::servify::ServifyExport for SomeStruct_increment {
         type Request = __increment_request;
         type Response = __increment_response;
     }

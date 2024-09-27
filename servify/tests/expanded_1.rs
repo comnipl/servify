@@ -53,7 +53,7 @@ mod SomeStruct {
 }
 
 mod some_other {
-    use crate::tests::expanded_1::SomeStruct;
+    use super::SomeStruct;
 
     #[allow(non_camel_case_types)]
     pub type __increment_response = u32;
