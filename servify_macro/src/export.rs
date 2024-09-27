@@ -50,8 +50,8 @@ fn parse_method(input: &ImplItemFn, parent: &ExportParent) -> Result<TokenStream
 
     let fn_name = input.sig.ident.clone();
 
-    let mod_name = Ident::new(
-        &format!("{}_{}", struct_name.to_string().to_snake(), fn_name),
+    let export_name = Ident::new(
+        &format!("{}_{}", struct_name.to_string(), fn_name),
         Span::call_site(),
     );
 
@@ -165,8 +165,11 @@ fn parse_method(input: &ImplItemFn, parent: &ExportParent) -> Result<TokenStream
             }
         }
 
-        pub mod #mod_name {
-            pub use super::{#request_name as Request, #response_name as Response};
+        #[allow(non_camel_case_types)]
+        pub struct #export_name ();
+        impl ::servify::ServifyExport for #export_name {
+            type Request = #request_name;
+            type Response = #response_name;
         }
     })
 }
@@ -238,8 +241,11 @@ mod tests {
                     }
                 }
 
-                pub mod some_struct_increment {
-                    pub use super::{__increment_request as Request, __increment_response as Response};
+                #[allow(non_camel_case_types)]
+                pub struct SomeStruct_increment ();
+                impl ::servify::ServifyExport for SomeStruct_increment {
+                    type Request = __increment_request;
+                    type Response = __increment_response;
                 }
             }.to_string()
         };

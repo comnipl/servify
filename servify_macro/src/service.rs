@@ -76,12 +76,14 @@ impl ServiceParentAttrs {
             .into_iter()
             .map(|path| {
                 let fn_name = path.path.segments.last().unwrap().ident.clone();
+                let fn_name_str = fn_name.to_string()
+                    .strip_prefix(&mod_name.to_string())
+                    .map(|p| p.trim_start_matches("_").to_string());
+                let Some(fn_name_str) = fn_name_str else {
+                    return None;
+                };
                 let fn_name = Ident::new(
-                    fn_name
-                        .to_string()
-                        .strip_prefix(&mod_name.to_string().to_snake())
-                        .unwrap()
-                        .trim_start_matches("_"),
+                    &fn_name_str,
                     fn_name.span(),
                 );
                 let internal_fn_name = Ident::new(
@@ -91,15 +93,14 @@ impl ServiceParentAttrs {
 
                 let enum_name = Ident::new(&fn_name.to_string().to_camel(), fn_name.span());
 
-                let request_path = path.clone().to_super().with_trail_ident("Request");
-                let response_path = path.clone().to_super().with_trail_ident("Response");
+                let super_path = path.clone().to_super();
 
                 let internal_function = quote! {
                     #[doc(hidden)]
                     pub async fn #internal_fn_name(
                         client: &Client,
-                        req: #request_path,
-                    ) -> #response_path {
+                        req: <#super_path as ::servify::ServifyExport>::Request,
+                    ) -> <#super_path as ::servify::ServifyExport>::Response {
                         let (tx, rx) = ::tokio::sync::oneshot::channel();
                         client.tx.send(Message::#enum_name(req, tx)).await.unwrap();
                         rx.await.unwrap()
@@ -108,8 +109,8 @@ impl ServiceParentAttrs {
 
                 let enum_element = quote! {
                     #enum_name(
-                        #request_path,
-                        ::tokio::sync::oneshot::Sender<#response_path>,
+                        <#super_path as ::servify::ServifyExport>::Request,
+                        ::tokio::sync::oneshot::Sender<<#super_path as ::servify::ServifyExport>::Response>,
                     ),
                 };
 
@@ -120,12 +121,14 @@ impl ServiceParentAttrs {
                     },
                 };
 
-                ImplTokens {
+
+                Some(ImplTokens {
                     internal_function,
                     enum_element,
                     server_arm,
-                }
+                })
             })
+            .filter_map(|p| p)
             .collect();
 
         let internal_functions: TokenStream =
@@ -180,7 +183,7 @@ mod tests {
     fn single() {
         assert_eq! {
             impl_service(quote!{
-                impls = [some_struct_increment],
+                impls = [SomeStruct_increment],
             }, quote!{
                 struct SomeStruct {
                     pub count: u32,
@@ -191,8 +194,8 @@ mod tests {
                 mod SomeStruct {
                     pub enum Message {
                         Increment(
-                            super::some_struct_increment::Request,
-                            ::tokio::sync::oneshot::Sender<super::some_struct_increment::Response>,
+                            <super::SomeStruct_increment as ::servify::ServifyExport>::Request,
+                            ::tokio::sync::oneshot::Sender<<super::SomeStruct_increment as ::servify::ServifyExport>::Response>,
                         ),
                     }
 
@@ -221,8 +224,8 @@ mod tests {
                     #[doc(hidden)]
                     pub async fn __internal_increment(
                         client: &Client,
-                        req: super::some_struct_increment::Request,
-                    ) -> super::some_struct_increment::Response {
+                        req: <super::SomeStruct_increment as ::servify::ServifyExport>::Request,
+                    ) ->  <super::SomeStruct_increment as ::servify::ServifyExport>::Response {
                         let (tx, rx) = ::tokio::sync::oneshot::channel();
                         client.tx.send(Message::Increment(req, tx)).await.unwrap();
                         rx.await.unwrap()

@@ -1,7 +1,7 @@
 #[servify_macro::service(
     impls = [
-        counter_increment_and_get,
-        counter_get_value,
+        Counter_increment_and_get,
+        Counter_get_value,
     ]
 )]
 struct Counter {

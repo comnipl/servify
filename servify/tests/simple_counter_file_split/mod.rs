@@ -3,17 +3,17 @@ mod increment;
 mod reset;
 mod set;
 
-use get::simple_counter_get;
-use increment::simple_counter_increment_and_get;
-use reset::simple_counter_reset;
-use set::simple_counter_set;
+use increment::SimpleCounter_increment_and_get_ex;
+use get::SimpleCounter_get;
+use set::SimpleCounter_set;
+use reset::SimpleCounter_reset;
 
 #[servify_macro::service(
     impls = [
-        simple_counter_increment_and_get,
-        simple_counter_get,
-        simple_counter_reset,
-        simple_counter_set
+        SimpleCounter_increment_and_get_ex,
+        SimpleCounter_get,
+        SimpleCounter_set,
+        SimpleCounter_reset,
     ]
 )]
 struct SimpleCounter {
@@ -30,8 +30,8 @@ async fn main() {
             .await;
     });
 
-    assert_eq!(counter_client.increment_and_get().await, 1);
-    assert_eq!(counter_client.increment_and_get().await, 2);
+    assert_eq!(counter_client.increment_and_get_ex().await, 1);
+    assert_eq!(counter_client.increment_and_get_ex().await, 2);
     assert_eq!(counter_client.get().await, 2);
     counter_client.set(10).await;
     assert_eq!(counter_client.get().await, 10);
