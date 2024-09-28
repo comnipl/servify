@@ -74,16 +74,12 @@ impl ServiceParentAttrs {
             .impls
             .clone()
             .into_iter()
-            .map(|path| {
+            .filter_map(|path| {
                 let fn_name = path.path.segments.last().unwrap().ident.clone();
-                let fn_name_str = fn_name.to_string()
-                    .strip_prefix(&mod_name.to_string())
-                    .map(|p| p.trim_start_matches("_").to_string());
-                let Some(fn_name_str) = fn_name_str else {
-                    return None;
-                };
                 let fn_name = Ident::new(
-                    &fn_name_str,
+                    &fn_name.to_string()
+                    .strip_prefix(&mod_name.to_string())
+                    .map(|p| p.trim_start_matches('_').to_string())?,
                     fn_name.span(),
                 );
                 let internal_fn_name = Ident::new(
@@ -128,7 +124,6 @@ impl ServiceParentAttrs {
                     server_arm,
                 })
             })
-            .filter_map(|p| p)
             .collect();
 
         let internal_functions: TokenStream =

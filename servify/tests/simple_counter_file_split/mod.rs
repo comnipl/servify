@@ -3,10 +3,10 @@ mod increment;
 mod reset;
 mod set;
 
-use increment::SimpleCounter_increment_and_get_ex;
 use get::SimpleCounter_get;
-use set::SimpleCounter_set;
+use increment::SimpleCounter_increment_and_get_ex;
 use reset::SimpleCounter_reset;
+use set::SimpleCounter_set;
 
 #[servify_macro::service(
     impls = [

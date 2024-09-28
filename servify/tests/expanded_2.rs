@@ -18,7 +18,9 @@ mod SomeStruct {
     pub enum Message {
         Increment(
             <SomeStruct_increment as ::servify::ServifyExport>::Request,
-            tokio::sync::oneshot::Sender<<SomeStruct_increment as ::servify::ServifyExport>::Response>,
+            tokio::sync::oneshot::Sender<
+                <SomeStruct_increment as ::servify::ServifyExport>::Response,
+            >,
         ),
     }
 
@@ -81,12 +83,11 @@ mod some_other {
     }
 
     #[allow(non_camel_case_types)]
-    pub struct SomeStruct_increment ();
+    pub struct SomeStruct_increment();
     impl ::servify::ServifyExport for SomeStruct_increment {
         type Request = __increment_request;
         type Response = __increment_response;
     }
-
 }
 
 #[tokio::test]
