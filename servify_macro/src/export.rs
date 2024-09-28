@@ -50,10 +50,7 @@ fn parse_method(input: &ImplItemFn, parent: &ExportParent) -> Result<TokenStream
 
     let fn_name = input.sig.ident.clone();
 
-    let export_name = Ident::new(
-        &format!("{}_{}", struct_name.to_string(), fn_name),
-        Span::call_site(),
-    );
+    let export_name = Ident::new(&format!("{}_{}", struct_name, fn_name), Span::call_site());
 
     let request_name = Ident::new(
         &format!("__{}_request", fn_name.to_string().to_snake()),
