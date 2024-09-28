@@ -4,6 +4,7 @@ version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
+repository.workspace = true
 description = """
 A macro for effortlessly enabling message passing, inter-process communication, HTTP/TCP server functionality, and more with a unified implementation in struct methods.
 """
