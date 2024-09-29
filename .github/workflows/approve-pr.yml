@@ -30,6 +30,7 @@ jobs:
         if: ${{ fromJSON(steps.check_conditions.outputs.result).hasLabel }}
         uses: actions/github-script@v4
         with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             await github.issues.removeLabel({
               owner: context.repo.owner,
