@@ -8,6 +8,7 @@ jobs:
     runs-on: ubuntu-latest
 
     strategy:
+      fail-fast: false
       matrix:
         toolchain: [stable, beta, nightly]
         workspace: [servify, servify_macro]
@@ -19,6 +20,8 @@ jobs:
       - uses: actions/checkout@v2
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v1
+        with:
+          key: ${{ runner.os }}-cargo-${{ matrix.toolchain }}-${{ matrix.workspace }}
       - name: Set up Rust
         uses: actions-rs/toolchain@v1
         with:
