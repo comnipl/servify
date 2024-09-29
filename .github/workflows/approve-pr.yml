@@ -14,33 +14,19 @@ jobs:
         with:
           script: |
             const pr = context.payload.pull_request;
-            const label = pr.labels.find(label => label.name === 'approve-please');
             const isAdmin = await github.orgs.checkMembershipForUser({
               org: context.repo.owner,
               username: pr.user.login
             }).then(() => true).catch(() => false);
             const isDraft = pr.draft;
 
-            const result = { hasLabel: !!label, isAdmin, isDraft };
+            const result = { isAdmin, isDraft };
             console.log(result);
 
             return result;
 
-      - name: Remove 'approve-please' label
-        if: ${{ fromJSON(steps.check_conditions.outputs.result).hasLabel }}
-        uses: actions/github-script@v4
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            await github.issues.removeLabel({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              name: 'approve-please'
-            });
-
       - name: Approve PR
-        if: ${{ fromJSON(steps.check_conditions.outputs.result).hasLabel && fromJSON(steps.check_conditions.outputs.result).isAdmin && !fromJSON(steps.check_conditions.outputs.result).isDraft }}
+        if: ${{ fromJSON(steps.check_conditions.outputs.result).isAdmin && !fromJSON(steps.check_conditions.outputs.result).isDraft }}
         uses: hmarr/auto-approve-action@v2
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
