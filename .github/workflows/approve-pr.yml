@@ -1,0 +1,45 @@
+name: Approve PR
+
+on:
+  pull_request:
+    types: [opened, synchronize, labeled, unlabeled, ready_for_review]
+
+jobs:
+  approve-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Check PR conditions
+        id: check_conditions
+        uses: actions/github-script@v4
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const label = pr.labels.find(label => label.name === 'approve-please');
+            const isAdmin = await github.orgs.checkMembershipForUser({
+              org: context.repo.owner,
+              username: pr.user.login
+            }).then(() => true).catch(() => false);
+            const isDraft = pr.draft;
+
+            return { hasLabel: !!label, isAdmin, isDraft };
+
+      - name: Remove 'approve-please' label
+        if: steps.check_conditions.outputs.hasLabel == 'true'
+        uses: actions/github-script@v4
+        with:
+          script: |
+            await github.issues.removeLabel({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              name: 'approve-please'
+            });
+
+      - name: Approve PR
+        if: steps.check_conditions.outputs.hasLabel == 'true' && steps.check_conditions.outputs.isAdmin == 'true' && steps.check_conditions.outputs.isDraft == 'false'
+        uses: hmarr/auto-approve-action@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
