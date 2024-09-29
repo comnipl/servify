@@ -39,7 +39,7 @@ jobs:
             });
 
       - name: Approve PR
-        if: ${{ fromJSON(steps.check_conditions.outputs.result).hasLabel && fromJSON(steps.check_conditions.outputs.result).isAdmin == 'true' && !fromJSON(steps.check_conditions.outputs.result).isDraft }}
+        if: ${{ fromJSON(steps.check_conditions.outputs.result).hasLabel && fromJSON(steps.check_conditions.outputs.result).isAdmin && !fromJSON(steps.check_conditions.outputs.result).isDraft }}
         uses: hmarr/auto-approve-action@v2
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
