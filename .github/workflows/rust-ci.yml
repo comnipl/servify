@@ -59,12 +59,18 @@ jobs:
 
   clippy:
     runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        workspace: [servify, servify_macro]
+
     steps:
       - uses: actions/checkout@v2
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v1
         with:
-          key: ${{ runner.os }}-cargo-minimal-${{ matrix.workspace }}
+          key: ${{ runner.os }}-cargo-stable-${{ matrix.workspace }}
           save-if: false
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
