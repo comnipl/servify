@@ -1,0 +1,90 @@
+name: rust-ci
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        toolchain: [stable, beta, nightly]
+        workspace: [servify, servify_macro]
+
+    env:
+      CARGO_TERM_COLOR: always
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: ${{ runner.os }}-cargo-${{ matrix.toolchain }}-${{ matrix.workspace }}
+          cache-on-failure: true
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.toolchain }}
+      - name: Build
+        run: cargo +${{ matrix.toolchain }} build --package ${{ matrix.workspace }}
+      - name: Run tests
+        run: cargo +${{ matrix.toolchain }} test --package ${{ matrix.workspace }}
+
+  build-and-test-minimal:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        workspace: [servify, servify_macro]
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: ${{ runner.os }}-cargo-minimal-${{ matrix.workspace }}
+          cache-on-failure: true
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@nightly
+      - name: Generate minimal-version Cargo.lock
+        run: cargo +nightly update -Z minimal-versions
+      - name: Build with minimal versions
+        run: cargo +stable build --package ${{ matrix.workspace }}
+      - name: Run tests with minimal versions
+        run: cargo +stable test --package ${{ matrix.workspace }}
+
+  clippy:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        workspace: [servify, servify_macro]
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: ${{ runner.os }}-cargo-stable-${{ matrix.workspace }}
+          cache-on-failure: true
+          save-if: false
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Run clippy
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+  rustfmt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Run fmt
+        run: cargo fmt --all -- --check
