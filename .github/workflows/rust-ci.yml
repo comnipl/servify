@@ -3,9 +3,6 @@ name: rust-ci
 on:
   pull_request:
   merge_group:
-  push:
-    branches:
-      - main
 
 jobs:
   build-and-test:
