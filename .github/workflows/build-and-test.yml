@@ -10,7 +10,10 @@ jobs:
     strategy:
       matrix:
         toolchain: [stable, beta, nightly]
-        workspace: [servify, servify-client]
+        workspace: [servify, servify_client]
+
+    env:
+      CARGO_TERM_COLOR: always
 
     steps:
       - uses: actions/checkout@v2
@@ -21,6 +24,6 @@ jobs:
         with:
           toolchain: ${{ matrix.toolchain }}
       - name: Build
-        run: cargo build --package ${{ matrix.workspace }} --verbose
+        run: cargo build --package ${{ matrix.workspace }}
       - name: Run tests
-        run: cargo test --package ${{ matrix.workspace }} --verbose
+        run: cargo test --package ${{ matrix.workspace }}
