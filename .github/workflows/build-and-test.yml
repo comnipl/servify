@@ -2,9 +2,12 @@ name: build-and-test
 
 on:
   pull_request:
+  push:
+    branches:
+      - main
 
 jobs:
-  build:
+  updated:
     runs-on: ubuntu-latest
 
     strategy:
@@ -29,4 +32,31 @@ jobs:
       - name: Build
         run: cargo build --package ${{ matrix.workspace }}
       - name: Run tests
+        run: cargo test --package ${{ matrix.workspace }}
+
+  minimal-version:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        workspace: [servify, servify_macro]
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v1
+        with:
+          key: ${{ runner.os }}-cargo-minimal-${{ matrix.workspace }}
+      - name: Set up Rust (nightly and stable)
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: |
+            nightly
+            stable
+      - name: Generate minimal-version Cargo.lock
+        run: cargo +nightly update -Z minimal-versions
+      - name: Build with minimal versions
+        run: cargo build --package ${{ matrix.workspace }}
+      - name: Run tests with minimal versions
         run: cargo test --package ${{ matrix.workspace }}
