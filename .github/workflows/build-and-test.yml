@@ -26,13 +26,13 @@ jobs:
         with:
           key: ${{ runner.os }}-cargo-${{ matrix.toolchain }}-${{ matrix.workspace }}
       - name: Set up Rust
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain
         with:
           toolchain: ${{ matrix.toolchain }}
       - name: Build
-        run: cargo build --package ${{ matrix.workspace }}
+        run: cargo +${{ matrix.toolchain }} build --package ${{ matrix.workspace }}
       - name: Run tests
-        run: cargo test --package ${{ matrix.workspace }}
+        run: cargo +${{ matrix.toolchain }} test --package ${{ matrix.workspace }}
 
   minimal-version:
     runs-on: ubuntu-latest
@@ -49,14 +49,10 @@ jobs:
         with:
           key: ${{ runner.os }}-cargo-minimal-${{ matrix.workspace }}
       - name: Set up Rust (nightly and stable)
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: |
-            nightly
-            stable
+        uses: dtolnay/rust-toolchain@nightly
       - name: Generate minimal-version Cargo.lock
         run: cargo +nightly update -Z minimal-versions
       - name: Build with minimal versions
-        run: cargo build --package ${{ matrix.workspace }}
+        run: cargo +stable build --package ${{ matrix.workspace }}
       - name: Run tests with minimal versions
-        run: cargo test --package ${{ matrix.workspace }}
+        run: cargo +stable test --package ${{ matrix.workspace }}
