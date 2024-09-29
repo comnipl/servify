@@ -27,7 +27,7 @@ jobs:
             return result;
 
       - name: Remove 'approve-please' label
-        if: steps.check_conditions.outputs.hasLabel == 'true'
+        if: ${{ fromJson(steps.check_conditions.outputs.result).hasLabel == 'true' }}
         uses: actions/github-script@v4
         with:
           script: |
@@ -39,7 +39,7 @@ jobs:
             });
 
       - name: Approve PR
-        if: steps.check_conditions.outputs.hasLabel == 'true' && steps.check_conditions.outputs.isAdmin == 'true' && steps.check_conditions.outputs.isDraft == 'false'
+        if: ${{ fromJson(steps.check_conditions.outputs.result).hasLabel == 'true' && fromJson(steps.check_conditions.outputs.result).isAdmin == 'true' && fromJson(steps.check_conditions.outputs.result).isDraft == 'false' }}
         uses: hmarr/auto-approve-action@v2
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
