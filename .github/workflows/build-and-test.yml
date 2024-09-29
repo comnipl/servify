@@ -26,7 +26,7 @@ jobs:
         with:
           key: ${{ runner.os }}-cargo-${{ matrix.toolchain }}-${{ matrix.workspace }}
       - name: Set up Rust
-        uses: dtolnay/rust-toolchain
+        uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.toolchain }}
       - name: Build
