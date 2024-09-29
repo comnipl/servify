@@ -21,7 +21,10 @@ jobs:
             }).then(() => true).catch(() => false);
             const isDraft = pr.draft;
 
-            return { hasLabel: !!label, isAdmin, isDraft };
+            const result = { hasLabel: !!label, isAdmin, isDraft };
+            console.log(result);
+
+            return result;
 
       - name: Remove 'approve-please' label
         if: steps.check_conditions.outputs.hasLabel == 'true'
