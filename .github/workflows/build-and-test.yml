@@ -10,7 +10,7 @@ jobs:
     strategy:
       matrix:
         toolchain: [stable, beta, nightly]
-        workspace: [servify, servify_client]
+        workspace: [servify, servify_macro]
 
     env:
       CARGO_TERM_COLOR: always
