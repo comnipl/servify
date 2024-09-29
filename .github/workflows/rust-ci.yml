@@ -1,4 +1,4 @@
-name: build-and-test
+name: rust-ci
 
 on:
   pull_request:
@@ -7,7 +7,7 @@ on:
       - main
 
 jobs:
-  updated:
+  build-and-test:
     runs-on: ubuntu-latest
 
     strategy:
@@ -34,7 +34,7 @@ jobs:
       - name: Run tests
         run: cargo +${{ matrix.toolchain }} test --package ${{ matrix.workspace }}
 
-  minimal-version:
+  build-and-test-minimal:
     runs-on: ubuntu-latest
 
     strategy:
@@ -48,7 +48,7 @@ jobs:
         uses: Swatinem/rust-cache@v1
         with:
           key: ${{ runner.os }}-cargo-minimal-${{ matrix.workspace }}
-      - name: Set up Rust (nightly and stable)
+      - name: Set up Rust
         uses: dtolnay/rust-toolchain@nightly
       - name: Generate minimal-version Cargo.lock
         run: cargo +nightly update -Z minimal-versions
@@ -56,3 +56,26 @@ jobs:
         run: cargo +stable build --package ${{ matrix.workspace }}
       - name: Run tests with minimal versions
         run: cargo +stable test --package ${{ matrix.workspace }}
+
+  clippy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v1
+        with:
+          key: ${{ runner.os }}-cargo-minimal-${{ matrix.workspace }}
+          save-if: false
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Run clippy
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+  rustfmt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Run fmt
+        run: cargo fmt --all -- --check
