@@ -1,0 +1,28 @@
+name: Check Changeset Status
+
+on:
+  pull_request:
+  merge_group:
+
+jobs:
+  check-changeset-status:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        name: Install pnpm
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Check changeset status
+        run: pnpm changeset status
