@@ -10,7 +10,6 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
-      organization: read
     steps:
       - name: Check if label is 'approve-please'
         if: github.event.label.name == 'approve-please'
