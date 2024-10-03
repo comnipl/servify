@@ -1,4 +1,4 @@
-#[servify_macro::service(
+#[servify::service(
     impls = [
         SimpleCounter_increment_and_get,
         SimpleCounter_get,
@@ -10,7 +10,7 @@ struct SimpleCounter {
     pub counter: u32,
 }
 
-#[servify_macro::export]
+#[servify::export]
 impl SimpleCounter {
     fn increment_and_get(&mut self) -> u32 {
         self.counter += 1;
