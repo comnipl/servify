@@ -8,7 +8,7 @@ use increment::SimpleCounter_increment_and_get_ex;
 use reset::SimpleCounter_reset;
 use set::SimpleCounter_set;
 
-#[servify_macro::service(
+#[servify::service(
     impls = [
         SimpleCounter_increment_and_get_ex,
         SimpleCounter_get,

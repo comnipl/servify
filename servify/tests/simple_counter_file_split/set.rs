@@ -1,6 +1,6 @@
 use super::SimpleCounter;
 
-#[servify_macro::export]
+#[servify::export]
 impl SimpleCounter {
     fn set(&mut self, value: u32) {
         self.counter = value;

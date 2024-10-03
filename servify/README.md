@@ -3,7 +3,7 @@
 A macro for effortlessly enabling message passing, inter-process communication, HTTP/TCP server functionality, and more with a unified implementation in struct methods.
 
 ```rs
-#[servify_macro::service(
+#[servify::service(
     impls = [
         Counter_increment_and_get,
         Counter_get_value,
@@ -13,7 +13,7 @@ struct Counter {
     pub count: u32,
 }
 
-#[servify_macro::export]
+#[servify::export]
 impl Counter {
     fn increment_and_get(&mut self, count: u32) -> u32 {
         self.count += count;
