@@ -2,33 +2,48 @@ name: Approve PR
 
 on:
   pull_request:
-    types: [synchronize, labeled, ready_for_review]
+    types: [labeled]
 
 jobs:
-  approve-pr:
+  approve_pr:
     runs-on: ubuntu-latest
     permissions:
+      contents: read
       pull-requests: write
     steps:
-      - name: Check PR conditions
-        id: check_conditions
-        uses: actions/github-script@v4
+      - name: Check if label is 'approve-please'
+        if: github.event.label.name == 'approve-please'
+        run: echo "Label is 'approve-please', proceeding..."
+
+      - name: Verify if actor is an organization owner
+        if: github.event.label.name == 'approve-please'
+        id: check_owner
+        uses: actions/github-script@v7
         with:
+          github-token: ${{ secrets.TOKEN_ORG_MEMBER_READ }}
           script: |
-            const pr = context.payload.pull_request;
-            const isAdmin = await github.orgs.checkMembershipForUser({
-              org: context.repo.owner,
-              username: pr.user.login
-            }).then(() => true).catch(() => false);
-            const isDraft = pr.draft;
+            try {
+              const { data } = await github.rest.orgs.getMembershipForUser({
+                org: context.repo.owner,
+                username: context.actor,
+              });
+              if (data.role === 'admin') {
+                core.setOutput('is_owner', 'true');
+              } else {
+                core.setOutput('is_owner', 'false');
+              }
+            } catch (error) {
+              core.setOutput('is_owner', 'false');
+              core.warning(`Error fetching membership: ${error.message}`);
+            }
 
-            const result = { isAdmin, isDraft };
-            console.log(result);
-
-            return result;
-
-      - name: Approve PR
-        if: ${{ fromJSON(steps.check_conditions.outputs.result).isAdmin && !fromJSON(steps.check_conditions.outputs.result).isDraft }}
+      - name: Approve the pull request
+        if: steps.check_owner.outputs.is_owner == 'true'
         uses: hmarr/auto-approve-action@v2
+
+      - name: Remove 'approve-please' label
+        if: steps.check_owner.outputs.is_owner == 'true'
+        uses: actions-ecosystem/action-remove-labels@v1
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          labels: "approve-please"
+          github_token: ${{ secrets.GITHUB_TOKEN }}
