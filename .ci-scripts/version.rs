@@ -16,9 +16,9 @@ use std::sync::LazyLock;
 use std::path::PathBuf;
 use tokio::process::Command;
 use tokio::fs::File;
-use tokio::io::AsyncReadExt;
 use serde_json::Value;
 use futures::{StreamExt as _};
+use tokio::io::{AsyncReadExt as _};
 use toml_edit::{DocumentMut, value};
 
 static PACKAGES: LazyLock<Vec<Package>> = LazyLock::new(|| {
