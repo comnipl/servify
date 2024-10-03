@@ -26,7 +26,7 @@ jobs:
             const username = context.actor;
 
             try {
-              const { role } = await github.orgs.getMembershipForUser({
+              const { role } = await github.rest.orgs.getMembershipForUser({
                 org: org,
                 username: username
               });
