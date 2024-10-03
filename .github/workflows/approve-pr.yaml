@@ -18,7 +18,7 @@ jobs:
       - name: Verify if actor is an organization owner
         if: github.event.label.name == 'approve-please'
         id: check_owner
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -26,11 +26,11 @@ jobs:
             const username = context.actor;
 
             try {
-              const { data: membership } = await github.orgs.getMembershipForUser({
+              const { role } = await github.orgs.getMembershipForUser({
                 org: org,
                 username: username
               });
-              if (membership.role === 'admin') {
+              if (role === 'admin') {
                 core.setOutput('is_owner', 'true');
               } else {
                 core.setOutput('is_owner', 'false');
