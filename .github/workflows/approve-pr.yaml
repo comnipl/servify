@@ -21,13 +21,10 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const org = context.payload.organization.login;
-            const username = context.actor;
-
             try {
               const { role } = await github.rest.orgs.getMembershipForUser({
-                org: org,
-                username: username
+                org: context.repo.owner,
+                username: context.actor,
               });
               if (role === 'admin') {
                 core.setOutput('is_owner', 'true');
