@@ -8,7 +8,22 @@ edition = "2021"
 tokio = { version = "1.40.0", features = ["macros", "rt"] }
 ---
 
+use std::process::Command;
+
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
     println!("Hello, world!");
+
+    let status = Command::new("pnpm")
+        .arg("changeset")
+        .arg("version")
+        .status()
+        .expect("Failed to execute pnpm changeset version");
+
+    if status.success() {
+        println!("Command executed successfully with exit code 0");
+    } else {
+        println!("Command failed with exit code: {}", status.code().unwrap_or(-1));
+    }
+
 }
