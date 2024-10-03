@@ -8,7 +8,8 @@ edition = "2021"
 tokio = { version = "1.40.0", features = ["macros", "rt", "process", "fs", "io-util"] }
 futures = "0.3.30"
 serde_json = "1.0.128"
-toml = "0.8.19"
+toml_edit = "0.22.22"
+anyhow = "1.0.89"
 ---
 
 use std::sync::LazyLock;
@@ -18,6 +19,7 @@ use tokio::fs::File;
 use tokio::io::AsyncReadExt;
 use serde_json::Value;
 use futures::{StreamExt as _};
+use toml_edit::{DocumentMut, value};
 
 static PACKAGES: LazyLock<Vec<Package>> = LazyLock::new(|| {
     vec![
@@ -40,34 +42,44 @@ struct Package {
     cargo_file: PathBuf,
 }
 
+async fn read_file(path: &PathBuf) -> Result<String, anyhow::Error> {
+    let mut file = File::open(path).await?;
+    let mut contents = String::new();
+    file.read_to_string(&mut contents).await?;
+    Ok(contents)
+}
+
 impl Package {
 
-    async fn get_pnpm_version(&self) -> Option<String> {
-        let mut file = File::open(&self.pnpm_file).await.ok()?;
-        let mut contents = String::new();
-        file.read_to_string(&mut contents).await.ok()?;
-
-        let package_json: Value = serde_json::from_str(&contents).ok()?;
-        package_json.get("version").and_then(|v| v.as_str()).map(String::from)
+    async fn get_pnpm_version(&self) -> Result<String, anyhow::Error> {
+        let contents = read_file(&self.pnpm_file).await?;
+        let package_json: Value = serde_json::from_str(&contents)?;
+        package_json
+            .get("version")
+            .and_then(|v| v.as_str())
+            .map(String::from)
+            .ok_or_else(|| anyhow::anyhow!("pnpm version not found in {}", self.name))
     }
+    async fn update_version(&self) -> Result<(), anyhow::Error> {
 
-    async fn get_cargo_version(&self) -> Option<String> {
-        let mut file = File::open(&self.cargo_file).await.ok()?;
-        let mut contents = String::new();
-        file.read_to_string(&mut contents).await.ok()?;
+        let pnpm_version = self.get_pnpm_version().await?;
 
-        let cargo_toml: Value = toml::from_str(&contents).ok()?;
-        cargo_toml.get("package").and_then(|p| p.get("version")).and_then(|v| v.as_str()).map(String::from)
-    }
+        let mut cargo_toml = read_file(&self.cargo_file).await?.parse::<DocumentMut>()?;
+        let cargo_version = cargo_toml["package"]["version"]
+            .as_str()
+            .map(String::from)
+            .ok_or_else(|| anyhow::anyhow!("cargo version not found in {}", self.name))?;
 
-    async fn update_version(&self) {
+        if pnpm_version != cargo_version {
+            cargo_toml["package"]["version"] = value(pnpm_version.clone());
+            let new_cargo_toml = cargo_toml.to_string();
+            tokio::fs::write(&self.cargo_file, new_cargo_toml).await?;
+            println!("[{}] Updated {} --> {}", self.name, cargo_version, pnpm_version);
+        } else {
+            println!("[{}] already up to date", self.name);
+        }
 
-        println!(
-            "Version ({}): pnpm = {}, cargo = {}",
-            self.name,
-            self.get_pnpm_version().await.unwrap_or("N/A".to_string()),
-            self.get_cargo_version().await.unwrap_or("N/A".to_string()),
-        );
+        Ok(())
     }
 }
 
@@ -85,7 +97,7 @@ async fn main() {
 
         futures::stream::iter((*PACKAGES).iter())
             .map(|package| tokio::spawn(async move {
-                package.update_version().await;
+                package.update_version().await
             }))
             .buffer_unordered(4)
             .collect::<Vec<_>>()
