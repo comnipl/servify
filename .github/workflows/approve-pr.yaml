@@ -23,11 +23,12 @@ jobs:
           github-token: ${{ secrets.TOKEN_ORG_MEMBER_READ }}
           script: |
             try {
-              const { role } = await github.rest.orgs.getMembershipForUser({
+              const membership = await github.rest.orgs.getMembershipForUser({
                 org: context.repo.owner,
                 username: context.actor,
               });
-              if (role === 'admin') {
+              console.log(membership);
+              if (membership.role === 'admin') {
                 core.setOutput('is_owner', 'true');
               } else {
                 core.setOutput('is_owner', 'false');
