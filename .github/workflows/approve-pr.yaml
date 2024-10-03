@@ -20,6 +20,7 @@ jobs:
         id: check_owner
         uses: actions/github-script@v7
         with:
+          github-token: ${{ secrets.TOKEN_ORG_MEMBER_READ }}
           script: |
             try {
               const { role } = await github.rest.orgs.getMembershipForUser({
@@ -44,5 +45,5 @@ jobs:
         if: steps.check_owner.outputs.is_owner == 'true'
         uses: actions-ecosystem/action-remove-labels@v1
         with:
-          labels: 'approve-please'
+          labels: "approve-please"
           github_token: ${{ secrets.GITHUB_TOKEN }}
