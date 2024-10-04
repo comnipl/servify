@@ -7,6 +7,7 @@ edition = "2021"
 [dependencies]
 tokio = { version = "1.40.0", features = ["macros", "rt", "process", "fs", "io-util"] }
 futures = "0.3.30"
+clap = { version = "4.5.19", features = ["derive"] }
 toml_edit = "0.22.22"
 anyhow = "1.0.89"
 petgraph = "0.6.5"
@@ -23,6 +24,15 @@ use petgraph::{
     algo::{toposort, DfsSpace},
     graph::DiGraph,
 };
+
+use clap::Parser;
+
+#[derive(Parser, Debug)]
+#[command()]
+struct Args {
+    #[arg(long)]
+    dry_run: bool,
+}
 
 
 static PACKAGES: LazyLock<Vec<Package>> = LazyLock::new(|| {
@@ -100,6 +110,9 @@ impl PackageParsed {
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
+
+    let args = Args::parse();
+
     let packages: Vec<PackageParsed> = futures::stream::iter((*PACKAGES).iter())
         .map(|package| tokio::spawn(async move {
             package.clone().parse().await
@@ -160,11 +173,14 @@ async fn main() {
         }
 
         println!("[{}] Publishing...", name);
-        let status = Command::new("cargo")
-            .arg("publish")
-            .arg("--allow-dirty")
-            .arg("--dry-run")
-            .current_dir(publishing.package.cargo_file.parent().unwrap())
+        let mut command = Command::new("cargo");
+        command.arg("publish").arg("--allow-dirty");
+
+        if args.dry_run {
+            command.arg("--dry-run");
+        }
+        
+        let status = command.current_dir(publishing.package.cargo_file.parent().unwrap())
             .status()
             .await
             .expect("Failed to execute cargo publish");
