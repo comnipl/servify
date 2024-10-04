@@ -1,6 +1,6 @@
 {
   "name": "servify",
-  "version": "0.1.1",
+  "version": "0.1.0",
   "description": "A macro for effortlessly enabling message passing, inter-process communication, HTTP/TCP server functionality, and more with a unified implementation in struct methods.",
   "keywords": [],
   "author": "AsPulse <contact@aspulse.dev>",
