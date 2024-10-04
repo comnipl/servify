@@ -1,0 +1,106 @@
+name: Dry Release
+
+on:
+  pull_request:
+  merge_group:
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  packages: write
+
+jobs:
+  dry-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Skip if not release branch
+        if: github.event.pull_request.head.ref == 'changeset-release/main' && github.event.pull_request.head.repo.full_name == 'pulsuite/servify'
+        id: is-release
+        run: |
+          echo "check=true" >> $GITHUB_OUTPUT
+
+      - name: Checkout repository
+        if: ( steps.is-release.outputs.check  == 'true' )
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Generate GitHub Apps token
+        id: generate
+        if: ( steps.is-release.outputs.check  == 'true' )
+        env:
+          APP_ID: ${{ secrets.RELEASE_BOT_APP_ID }}
+          PRIVATE_KEY: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
+        run: |
+          ./.ci-scripts/generate-access-token.sh
+
+      - name: Change Commit Author
+        if: ( steps.is-release.outputs.check  == 'true' )
+        env:
+          GITHUB_TOKEN: ${{ steps.generate.outputs.token }}
+        run: |
+          git remote set-url origin https://github-actions:${GITHUB_TOKEN}@github.com/pulsuite/servify.git
+
+      - uses: pnpm/action-setup@v4
+        if: ( steps.is-release.outputs.check  == 'true' )
+        name: Install pnpm
+
+      - name: Install Node.js
+        if: ( steps.is-release.outputs.check  == 'true' )
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "pnpm"
+
+      - name: Install dependencies
+        if: ( steps.is-release.outputs.check  == 'true' )
+        run: pnpm install
+
+      - name: Setup Rust
+        if: ( steps.is-release.outputs.check  == 'true' )
+        uses: dtolnay/rust-toolchain@nightly
+
+      - name: Cache CI Scripts
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/target
+          key: ${{ runner.os }}-ci-scripts
+          save-always: true
+
+      - name: Dry Run Release
+        if: ( steps.is-release.outputs.check  == 'true' )
+        id: dry-run
+        env:
+          GITHUB_TOKEN: ${{ steps.generate.outputs.token }}
+          CARGO_TERM_COLOR: always
+        run: |
+          ./.ci-scripts/release.rs -- --dry-run
+
+      - name: Change PR Title
+        if: ( steps.is-release.outputs.check  == 'true' )
+        env:
+          GITHUB_TOKEN: ${{ steps.generate.outputs.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ steps.dry-run.outputs.pr_name }}
+        run: |
+          curl --location --silent --request PATCH \
+            --url "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" \
+            --header "Accept: application/vnd.github+json" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            --header "Authorization: Bearer ${GITHUB_TOKEN}" \
+            --header "Content-Type: application/json" \
+            --data "{\"title\":\"${PR_TITLE}\"}"
+
+      - name: Revoke GitHub Apps token
+        if: ${{ always() && steps.is-release.outputs.check == 'true' }}
+        env:
+          GITHUB_TOKEN: ${{ steps.generate.outputs.token }}
+        run: |
+          curl --location --silent --request DELETE \
+            --url "${GITHUB_API_URL}/installation/token" \
+            --header "Accept: application/vnd.github+json" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            --header "Authorization: Bearer ${GITHUB_TOKEN}"
