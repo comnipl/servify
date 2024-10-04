@@ -64,6 +64,7 @@ jobs:
         uses: dtolnay/rust-toolchain@nightly
 
       - name: Cache CI Scripts
+        if: ( steps.is-release.outputs.check  == 'true' )
         uses: actions/cache@v4
         with:
           path: ~/.cargo/target
