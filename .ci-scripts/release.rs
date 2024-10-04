@@ -9,6 +9,7 @@ tokio = { version = "1.40.0", features = ["macros", "rt", "process", "fs", "io-u
 futures = "0.3.30"
 toml_edit = "0.22.22"
 anyhow = "1.0.89"
+petgraph = "0.6.5"
 ---
 
 use toml_edit::{DocumentMut, Item, Value, Formatted, InlineTable};
@@ -17,6 +18,12 @@ use std::path::PathBuf;
 use std::sync::LazyLock;
 use futures::{StreamExt as _};
 use tokio::io::{AsyncReadExt as _};
+use tokio::process::Command;
+use petgraph::{
+    algo::{toposort, DfsSpace},
+    graph::DiGraph,
+};
+
 
 static PACKAGES: LazyLock<Vec<Package>> = LazyLock::new(|| {
     vec![
@@ -31,13 +38,13 @@ static PACKAGES: LazyLock<Vec<Package>> = LazyLock::new(|| {
     ]
 });
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct Package {
     name: String,
     cargo_file: PathBuf,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct PackageParsed {
     package: Package,
     document: DocumentMut,
@@ -106,9 +113,64 @@ async fn main() {
         .unwrap();
 
     let mut deps = packages.clone();
+
+    let mut crates_dig: DiGraph<(), ()> = DiGraph::new();
+    let nodes = deps.iter().map(|_| crates_dig.add_node(())).collect::<Vec<_>>();
         
-    for p in deps.iter_mut() {
-        p.solve_path_deps(&packages).await.unwrap();
+    for (idx, p) in deps.iter_mut().enumerate() {
+        let r = p.solve_path_deps(&packages).await.unwrap();
+        for d in r {
+            crates_dig.add_edge(nodes[d], nodes[idx], ());
+        }
     }
 
+    let tagged = Command::new("pnpm")
+            .arg("changeset")
+            .arg("tag")
+            .output()
+            .await
+            .expect("Failed to execute pnpm changeset tag");
+            
+    if !tagged.status.success() {
+        panic!("Changeset version failed with exit code: {}", tagged.status.code().unwrap_or(-1));
+    }
+
+    let output = String::from_utf8(tagged.stdout).unwrap();
+    println!("{}", output);
+
+    let publishes = output.lines().map(|s| s.split("tag:")
+            .nth(1)
+            .unwrap_or("")
+            .trim()
+            .split('@')
+            .next()
+            .unwrap_or("")
+        ).collect::<Vec<_>>();
+    
+    let topo = {
+        let mut space = DfsSpace::new(&crates_dig);
+        toposort(&crates_dig, Some(&mut space))
+    }.unwrap().into_iter().map(|node_index| deps[nodes.iter().position(|&n| n == node_index).unwrap()].clone()).collect::<Vec<_>>();
+
+    for publishing in topo {
+        let name = publishing.package.name.clone();
+        if !publishes.contains(&name.as_str()) {
+            println!("[{}] not tagged, Skipping...", name);
+            continue;
+        }
+
+        println!("[{}] Publishing...", name);
+        let status = Command::new("cargo")
+            .arg("publish")
+            .arg("--allow-dirty")
+            .arg("--dry-run")
+            .current_dir(publishing.package.cargo_file.parent().unwrap())
+            .status()
+            .await
+            .expect("Failed to execute cargo publish");
+        
+        if !status.success() {
+            panic!("[{}] Failed to publish with exit code: {}", name, status.code().unwrap_or(-1));
+        }
+    }
 }
