@@ -11,7 +11,7 @@ toml_edit = "0.22.22"
 anyhow = "1.0.89"
 ---
 
-use toml_edit::{DocumentMut, Item, Value, Formatted};
+use toml_edit::{DocumentMut, Item, Value, Formatted, InlineTable};
 use tokio::fs::File;
 use std::path::PathBuf;
 use std::sync::LazyLock;
@@ -61,13 +61,13 @@ async fn read_file(path: &PathBuf) -> Result<String, anyhow::Error> {
 }
 
 impl PackageParsed {
-    async fn solve_path_deps(&self, packages: &Vec<PackageParsed>) -> Result<Vec<usize>, anyhow::Error> {
-        let deps_ids = vec![];
+    async fn solve_path_deps(&mut self, packages: &Vec<PackageParsed>) -> Result<Vec<usize>, anyhow::Error> {
+        let mut deps_ids = vec![];
         let Some(deps) = self.document["dependencies"].as_table_mut() else {
             return Ok(deps_ids);
         };
         deps.iter_mut().for_each(|(key, v)| {
-            if !v.as_table().map(|t| t.contains_key("path")).unwrap_or(false) {
+            if !v.as_inline_table().map(|t| t.contains_key("path")).unwrap_or(false) {
                 return;
             }
             let deps_pkg_name = key.get();
@@ -77,13 +77,14 @@ impl PackageParsed {
             deps_ids.push(deps_pkg);
 
             let deps_pkg_version = packages[deps_pkg].version.clone();
-            v.as_table_mut().unwrap().iter_mut().map(|(key, v)| {
+            *v = Item::Value(Value::InlineTable(v.as_inline_table().unwrap().iter().map(|(key, v)| {
                 if key == "path" {
                     println!("[{}] {}: {}", self.package.name, deps_pkg_name, deps_pkg_version);
-                    *key = String::from("version").into();
-                    *v = Item::Value(Value::String(Formatted::new(deps_pkg_version)));
+                    ("version", Value::String(Formatted::new(deps_pkg_version.clone())))
+                } else {
+                    (key, v.clone())
                 }
-            });
+            }).collect::<InlineTable>()));
         });
         tokio::fs::write(&self.package.cargo_file, self.document.to_string()).await?;
         Ok(deps_ids)
@@ -92,27 +93,22 @@ impl PackageParsed {
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
-    let packages = futures::stream::iter((*PACKAGES).iter())
+    let packages: Vec<PackageParsed> = futures::stream::iter((*PACKAGES).iter())
         .map(|package| tokio::spawn(async move {
             package.clone().parse().await
         }))
         .buffer_unordered(4)
         .collect::<Vec<_>>()
         .await
-        .unwrap()
         .into_iter()
-        .collect::<Result<Vec<PackageParsed>, _>>()
+        .collect::<Result<Result<Vec<_>, _>, _>>()
+        .unwrap()
         .unwrap();
 
-    let deps_solves = futures::stream::iter(packages.iter())
-        .map(|package| tokio::spawn(async move {
-            package.solve_path_deps(&packages).await
-        }))
-        .buffer_unordered(4)
-        .collect::<Vec<_>>()
-        .await
-        .unwrap()
-        .iter()
-        .collect::<Result<Vec<Vec<usize>>, _>>()
-        .unwrap();
+    let mut deps = packages.clone();
+        
+    for p in deps.iter_mut() {
+        p.solve_path_deps(&packages).await.unwrap();
+    }
+
 }
