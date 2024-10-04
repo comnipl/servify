@@ -7,13 +7,19 @@ on:
 
 concurrency: ${{ github.workflow }}-${{ github.ref }}
 
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  packages: write
+
 jobs:
   release:
     name: Release
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - uses: pnpm/action-setup@v4
         name: Install pnpm
@@ -39,6 +45,7 @@ jobs:
       - name: Create Release Pull Request
         uses: changesets/action@v1
         with:
+          title: "chore: Release Packages"
           publish: ./.ci-scripts/release.rs
           version: ./.ci-scripts/version.rs
         env:
