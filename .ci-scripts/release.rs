@@ -18,7 +18,7 @@ use tokio::fs::File;
 use std::path::PathBuf;
 use std::sync::LazyLock;
 use futures::{StreamExt as _};
-use tokio::io::{AsyncReadExt as _};
+use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
 use tokio::process::Command;
 use petgraph::{
     algo::{toposort, DfsSpace},
@@ -129,7 +129,7 @@ async fn main() {
 
     let mut crates_dig: DiGraph<(), ()> = DiGraph::new();
     let nodes = deps.iter().map(|_| crates_dig.add_node(())).collect::<Vec<_>>();
-        
+
     for (idx, p) in deps.iter_mut().enumerate() {
         let r = p.solve_path_deps(&packages).await.unwrap();
         for d in r {
@@ -143,7 +143,7 @@ async fn main() {
             .output()
             .await
             .expect("Failed to execute pnpm changeset tag");
-            
+
     if !tagged.status.success() {
         panic!("Changeset version failed with exit code: {}", tagged.status.code().unwrap_or(-1));
     }
@@ -151,15 +151,22 @@ async fn main() {
     let output = String::from_utf8(tagged.stdout).unwrap();
     println!("{}", output);
 
-    let publishes = output.lines().map(|s| s.split("tag:")
-            .nth(1)
-            .unwrap_or("")
-            .trim()
-            .split('@')
-            .next()
-            .unwrap_or("")
-        ).collect::<Vec<_>>();
-    
+    let publish_versions = output.lines().map(|s| s.split("tag:")
+        .nth(1)
+        .unwrap_or("")
+        .trim()
+    ).collect::<Vec<_>>();
+
+    let publishes = publish_versions.iter().map(|s| s
+        .split('@')
+        .next()
+        .unwrap_or("")
+    ).collect::<Vec<_>>();
+
+    github_output("pr_name".to_string(), format!("chore: Release {}",
+        publish_versions.iter().map(|s| format!("`{s}`")).collect::<Vec<_>>().join(", ")
+    )).await;
+
     let topo = {
         let mut space = DfsSpace::new(&crates_dig);
         toposort(&crates_dig, Some(&mut space))
@@ -179,14 +186,25 @@ async fn main() {
         if args.dry_run {
             command.arg("--dry-run");
         }
-        
+
         let status = command.current_dir(publishing.package.cargo_file.parent().unwrap())
             .status()
             .await
             .expect("Failed to execute cargo publish");
-        
+
         if !status.success() {
             panic!("[{}] Failed to publish with exit code: {}", name, status.code().unwrap_or(-1));
         }
+    }
+}
+
+async fn github_output(key: String, value: String) {
+    let data = format!("{key}<<EOF\n{value}\nEOF\n");
+    if let Ok(github_output) = std::env::var("GITHUB_OUTPUT") {
+        // append to github output with tokio
+        let mut file = tokio::fs::OpenOptions::new().append(true).open(github_output).await.unwrap();
+        file.write_all(data.as_bytes()).await.unwrap();
+    } else {
+        println!("Output (skipped) {data}");
     }
 }
