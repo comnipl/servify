@@ -9,22 +9,33 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Skip if release branch
+        if: github.event.pull_request.head.ref == 'changeset-release/main' && github.event.pull_request.head.repo.full_name == 'pulsuite/servify'
+        id: is-release
+        run: |
+          echo "check=true" >> $GITHUB_OUTPUT
+
       - name: Checkout repository
+        if: ( steps.is-release.outputs.check  != 'true' )
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - uses: pnpm/action-setup@v4
+        if: ( steps.is-release.outputs.check  != 'true' )
         name: Install pnpm
 
       - name: Install Node.js
+        if: ( steps.is-release.outputs.check  != 'true' )
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: "pnpm"
 
       - name: Install dependencies
+        if: ( steps.is-release.outputs.check  != 'true' )
         run: pnpm install
 
       - name: Check changeset status
+        if: ( steps.is-release.outputs.check  != 'true' )
         run: pnpm changeset status --since origin/main
