@@ -20,6 +20,22 @@ jobs:
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Generate GitHub Apps token
+        id: generate
+        env:
+          APP_ID: ${{ secrets.RELEASE_BOT_APP_ID }}
+          PRIVATE_KEY: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
+        run: |
+          ./.ci-scripts/generate-access-token.sh
+
+      - name: Change Commit Author
+        env:
+          GITHUB_TOKEN: ${{ steps.generate.outputs.token }}
+        run: |
+          git remote set-url origin https://github-actions:${GITHUB_TOKEN}@github.com/pulsuite/servify.git
 
       - uses: pnpm/action-setup@v4
         name: Install pnpm
@@ -42,14 +58,6 @@ jobs:
           path: ~/.cargo/target
           key: ${{ runner.os }}-ci-scripts
           save-always: true
-
-      - name: Generate GitHub Apps token
-        id: generate
-        env:
-          APP_ID: ${{ secrets.RELEASE_BOT_APP_ID }}
-          PRIVATE_KEY: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
-        run: |
-          ./.ci-scripts/generate-access-token.sh
 
       - name: Create Release Pull Request
         uses: changesets/action@v1
