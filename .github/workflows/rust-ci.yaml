@@ -48,7 +48,7 @@ jobs:
         with:
           shared-key: ${{ runner.os }}-cargo-minimal-${{ matrix.workspace }}
           cache-on-failure: true
-      - name: Set up Rust
+      - name: Setup Rust
         uses: dtolnay/rust-toolchain@nightly
       - name: Generate minimal-version Cargo.lock
         run: cargo +nightly update -Z minimal-versions
