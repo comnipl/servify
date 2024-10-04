@@ -39,6 +39,7 @@ jobs:
       - name: Create Release Pull Request
         uses: changesets/action@v1
         with:
+          title: "chore: Release Packages"
           publish: ./.ci-scripts/release.rs
           version: ./.ci-scripts/version.rs
         env:
