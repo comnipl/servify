@@ -108,6 +108,23 @@ async fn main() {
             .collect::<Vec<_>>()
             .await;
 
+        let mut update = Command::new("cargo");
+        update.arg("update");
+
+        (*PACKAGES).iter().for_each(|package| {
+            update.arg(&package.name);
+        });
+
+        let update_status = update.status()
+            .await
+            .expect("Failed to execute cargo update");
+
+        if update_status.success() {
+            println!("Cargo update executed successfully with exit code 0");
+        } else {
+            println!("Cargo update failed with exit code: {}", update_status.code().unwrap_or(-1));
+        }
+
     } else {
         println!("Changeset version failed with exit code: {}", status.code().unwrap_or(-1));
     }
