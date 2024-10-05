@@ -2,7 +2,7 @@
 resolver = "2"
 
 members = [
-    "servify", "servify_macro",
+    "servify", "servify_macro", "servify_build",
 ]
 
 [workspace.package]

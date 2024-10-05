@@ -1,0 +1,12 @@
+[package]
+name = "servify_build"
+version = "0.0.1"
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = """
+Build scripts for use with Servify
+"""
+
+[lib]
