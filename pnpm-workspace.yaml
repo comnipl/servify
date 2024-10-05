@@ -1,4 +1,3 @@
 packages:
-  - "servify/"
-  - "servify_macro/"
-  - "servify_build/"
+  - 'servify/'
+  - 'servify_macro'
