@@ -10,3 +10,6 @@ Tests for servify_build
 """
 
 [lib]
+
+[build_dependencies]
+servify_build = { path = "../servify_build" }

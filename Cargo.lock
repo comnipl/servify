@@ -151,6 +151,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "servify_tests"
+version = "0.1.0"
+dependencies = [
+ "servify_build",
+]
+
+[[package]]
 name = "syn"
 version = "2.0.77"
 source = "registry+https://github.com/rust-lang/crates.io-index"
