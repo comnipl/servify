@@ -9,8 +9,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Skip if release branch
-        if: github.event.pull_request.head.ref == 'changeset-release/main' && github.event.pull_request.head.repo.full_name == 'pulsuite/servify'
+      - name: Skip if release branch or merge_group
+        if: (github.event.pull_request.head.ref == 'changeset-release/main' && github.event.pull_request.head.repo.full_name == 'pulsuite/servify') || github.event_name == 'merge_group'
         id: is-release
         run: |
           echo "check=true" >> $GITHUB_OUTPUT

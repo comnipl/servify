@@ -130,12 +130,6 @@ async fn main() {
     let mut crates_dig: DiGraph<(), ()> = DiGraph::new();
     let nodes = deps.iter().map(|_| crates_dig.add_node(())).collect::<Vec<_>>();
 
-    for (idx, p) in deps.iter_mut().enumerate() {
-        let r = p.solve_path_deps(&packages).await.unwrap();
-        for d in r {
-            crates_dig.add_edge(nodes[d], nodes[idx], ());
-        }
-    }
 
     let tagged = Command::new("pnpm")
             .arg("changeset")
@@ -162,6 +156,22 @@ async fn main() {
         .next()
         .unwrap_or("")
     ).collect::<Vec<_>>();
+
+    for (idx, p) in deps.iter_mut().enumerate() {
+        let r = p.solve_path_deps(&packages).await.unwrap();
+        for d in r {
+            crates_dig.add_edge(nodes[d], nodes[idx], ());
+            if publishes.contains(&packages[d].package.name.as_str()) &&
+                !publishes.contains(&packages[idx].package.name.as_str()) {
+                panic!(
+                    "{} is versioned, but {}, which depends on {}, is not versioned.",
+                    packages[d].package.name,
+                    packages[idx].package.name,
+                    packages[d].package.name,
+                );
+            }
+        }
+    }
 
     github_output("pr_name".to_string(), format!("chore: Release {}",
         publish_versions.iter().map(|s| format!("`{s}`")).collect::<Vec<_>>().join(", ")
