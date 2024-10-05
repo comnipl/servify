@@ -1,0 +1,8 @@
+{
+  "name": "servify_build",
+  "version": "0.0.1",
+  "description": "Build scripts for use with Servify",
+  "keywords": [],
+  "author": "AsPulse <contact@aspulse.dev>",
+  "license": "MIT/Apache-2.0"
+}
