@@ -81,7 +81,7 @@ jobs:
           ./.ci-scripts/release.rs -- --dry-run
 
       - name: Change PR Title
-        if: ( steps.is-release.outputs.check  == 'true' )
+        if: ( steps.is-release.outputs.check  == 'true' && github.event_name == 'pull_request' )
         env:
           GITHUB_TOKEN: ${{ steps.generate.outputs.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
