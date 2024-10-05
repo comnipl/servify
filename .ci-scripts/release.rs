@@ -45,10 +45,6 @@ static PACKAGES: LazyLock<Vec<Package>> = LazyLock::new(|| {
             name: "servify_macro".to_string(),
             cargo_file: PathBuf::from("servify_macro/Cargo.toml"),
         },
-        Package {
-            name: "servify_build".to_string(),
-            cargo_file: PathBuf::from("servify_build/Cargo.toml"),
-        },
     ]
 });
 
