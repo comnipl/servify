@@ -128,12 +128,16 @@ checksum = "719b953e2095829ee67db738b3bfa9fa368c94900df327b3f07fe6e794d2fe1f"
 
 [[package]]
 name = "servify"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "pretty_assertions",
  "servify_macro",
  "tokio",
 ]
+
+[[package]]
+name = "servify_build"
+version = "0.0.1"
 
 [[package]]
 name = "servify_macro"
@@ -144,6 +148,13 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "servify_tests"
+version = "0.1.0"
+dependencies = [
+ "servify_build",
 ]
 
 [[package]]
