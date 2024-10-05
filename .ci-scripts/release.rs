@@ -161,10 +161,8 @@ async fn main() {
         let r = p.solve_path_deps(&packages).await.unwrap();
         for d in r {
             crates_dig.add_edge(nodes[d], nodes[idx], ());
-            if (
-                publishes.contains(&packages[d].package.name.as_str()) &&
-                !publishes.contains(&packages[idx].package.name.as_str())
-            ) {
+            if publishes.contains(&packages[d].package.name.as_str()) &&
+                !publishes.contains(&packages[idx].package.name.as_str()) {
                 panic!(
                     "{} is versioned, but {}, which depends on {}, is not versioned.",
                     packages[d].package.name,
