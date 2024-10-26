@@ -38,7 +38,7 @@ impl Parse for Sandbox1Attrs {
 impl Sandbox1Attrs {
     fn parse_item(self, item: TokenStream) -> Result<TokenStream> {
         let _struct = parse2::<ItemStruct>(item)?;
-        let kind_x = self.kind.clone();
+        let kind_x = Ident::new(self.kind.to_string().as_str(), Span::call_site());
         let kind_y = self.kind.clone();
         Ok(quote! {
             enum KindsX {
@@ -48,7 +48,7 @@ impl Sandbox1Attrs {
                 Ab, Ac
             }
             fn sandbox() {
-                // let _ = KindsX::#kind_x;
+                let #kind_x = "test";
                 let _ = KindsY::#kind_y;
             }
         })
