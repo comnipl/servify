@@ -1,3 +1,5 @@
+use servify::processor::ServifyProcessor as _;
+
 mod counter {
     use servify::processor::ServifyProcessor;
     use servify::serial::{ServifyMiddle, ServifyRequest};
@@ -13,7 +15,7 @@ mod counter {
         async fn serve(
             &mut self,
             middle: ServifyMiddle<Self::Kind, Self::Context>,
-        ) -> Box<dyn Any> {
+        ) -> Box<dyn Any + Send> {
             match middle.request.kind {
                 Kind::IncrementAndGet => {
                     <Self as ImplIncrementAndGet>::process_any(
@@ -34,7 +36,7 @@ mod counter {
         fn send(
             &self,
             request: ServifyRequest<Kind>,
-        ) -> Pin<Box<dyn '_ + Future<Output = Box<dyn Any>>>>;
+        ) -> Pin<Box<dyn '_ + Future<Output = Box<dyn Any + Send>>>>;
     }
 
     pub struct Counter<T: Dispatchable>(T);
@@ -43,7 +45,7 @@ mod counter {
         fn send(
             &self,
             request: ServifyRequest<Kind>,
-        ) -> Pin<Box<dyn '_ + Future<Output = Box<dyn Any>>>> {
+        ) -> Pin<Box<dyn '_ + Future<Output = Box<dyn Any + Send>>>> {
             self.0.send(request)
         }
     }
@@ -67,33 +69,43 @@ mod counter {
     // Impl(メソッド名) -
     //   実際に実装を記述している別の場所に対して、定数や関数を要求するトレイト。
     pub(super) trait ImplIncrementAndGet {
-        async fn process_any(&mut self, ctx: Context, payload: Box<dyn Any>) -> Box<dyn Any>;
+        async fn process_any(
+            &mut self,
+            ctx: Context,
+            payload: Box<dyn Any + Send>,
+        ) -> Box<dyn Any + Send>;
     }
 
-    // MessagePassing
+    pub mod message_passing {
+        use std::{any::Any, future::Future, pin::Pin};
 
-    pub(super) struct MessagePassing {
-        tx: tokio::sync::mpsc::Sender<(
-            Kind,
-            Context,
-            Box<dyn Any>,
-            tokio::sync::oneshot::Sender<Box<dyn Any>>,
-        )>,
-    }
+        use servify::{processor::ServifyAccess, serial::ServifyRequest};
 
-    impl Dispatchable for MessagePassing {
-        fn send(
-            &self,
-            request: ServifyRequest<Kind>,
-        ) -> Pin<Box<dyn '_ + Future<Output = Box<dyn Any>>>> {
-            Box::pin(async move {
-                let (tx, rx) = tokio::sync::oneshot::channel();
-                self.tx
-                    .send((request.kind, Context::MessagePassing, request.payload, tx))
-                    .await
-                    .unwrap();
-                rx.await.unwrap()
-            })
+        use super::{Context, Counter, Dispatchable, Kind};
+
+        pub struct MessagePassing {
+            access: ServifyAccess<super::Processor>,
+        }
+
+        pub fn initiate(access: ServifyAccess<super::Processor>) -> Counter<MessagePassing> {
+            Counter(MessagePassing { access })
+        }
+
+        impl Dispatchable for MessagePassing {
+            fn send(
+                &self,
+                request: ServifyRequest<Kind>,
+            ) -> Pin<Box<dyn '_ + Future<Output = Box<dyn Any + Send>>>> {
+                Box::pin(async move {
+                    let (tx, rx) = tokio::sync::oneshot::channel();
+                    self.access
+                        .tx
+                        .send((request.with_ctx(Context::MessagePassing), tx))
+                        .await
+                        .unwrap();
+                    rx.await.unwrap()
+                })
+            }
         }
     }
 }
@@ -137,8 +149,8 @@ mod counter_increment_and_get {
         async fn process_any(
             &mut self,
             ctx: counter::Context,
-            payload: Box<dyn Any>,
-        ) -> Box<dyn Any> {
+            payload: Box<dyn Any + Send>,
+        ) -> Box<dyn Any + Send> {
             let req = *payload.downcast::<Request>().unwrap();
             Box::new(<Self as Process>::process_internal(self, ctx, req.amount).await)
         }
@@ -160,4 +172,14 @@ mod counter_increment_and_get {
 }
 
 #[tokio::test]
-async fn main() {}
+async fn main() {
+    let counter = counter::Processor { count: 5 };
+    let (server, access) = counter.launch(32);
+    tokio::spawn(async move {
+        server.listen().await;
+    });
+
+    let client = counter::message_passing::initiate(access);
+    assert_eq!(client.increment_and_get(3).await, 8);
+    assert_eq!(client.increment_and_get(1).await, 9);
+}
