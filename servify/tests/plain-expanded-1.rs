@@ -25,6 +25,9 @@ mod counter {
                     )
                     .await
                 }
+                Kind::Get => {
+                    <Self as ImplGet>::process_any(self, middle.ctx, middle.request.payload).await
+                }
             }
         }
     }
@@ -54,6 +57,7 @@ mod counter {
     //   このモジュールで扱うリクエストの種類を表す列挙型。
     pub enum Kind {
         IncrementAndGet,
+        Get,
     }
 
     // Context -
@@ -69,6 +73,14 @@ mod counter {
     // Impl(メソッド名) -
     //   実際に実装を記述している別の場所に対して、定数や関数を要求するトレイト。
     pub(super) trait ImplIncrementAndGet {
+        async fn process_any(
+            &mut self,
+            ctx: Context,
+            payload: Box<dyn Any + Send>,
+        ) -> Box<dyn Any + Send>;
+    }
+
+    pub(super) trait ImplGet {
         async fn process_any(
             &mut self,
             ctx: Context,
@@ -135,17 +147,20 @@ mod counter_increment_and_get {
             amount: u32,
         ) -> u32 {
             self.count += amount;
-            self.count
+            self.get().await
         }
     }
 
     impl counter::Processor {
+        #[allow(unused)]
+        #[inline(always)]
         pub async fn increment_and_get(&mut self, amount: u32) -> u32 {
             <Self as Process>::process_internal(self, counter::Context::Direct, amount).await
         }
     }
 
     impl counter::ImplIncrementAndGet for counter::Processor {
+        #[inline(always)]
         async fn process_any(
             &mut self,
             ctx: counter::Context,
@@ -157,6 +172,7 @@ mod counter_increment_and_get {
     }
 
     impl<T: counter::Dispatchable> counter::Counter<T> {
+        #[inline(always)]
         pub async fn increment_and_get(&self, amount: u32) -> u32 {
             let req = Request { amount };
             let request = ServifyRequest {
@@ -171,6 +187,62 @@ mod counter_increment_and_get {
     }
 }
 
+mod get {
+    use std::any::Any;
+
+    use super::counter;
+    use servify::{processor::ServifyProcessor, serial::ServifyRequest};
+
+    struct Request {}
+
+    trait Process {
+        async fn process_internal(
+            &mut self,
+            ctx: <counter::Processor as ServifyProcessor>::Context,
+        ) -> u32;
+    }
+
+    impl Process for counter::Processor {
+        async fn process_internal(&mut self, ctx: <Self as ServifyProcessor>::Context) -> u32 {
+            self.count
+        }
+    }
+
+    impl counter::Processor {
+        #[allow(unused)]
+        #[inline(always)]
+        pub async fn get(&mut self) -> u32 {
+            <Self as Process>::process_internal(self, counter::Context::Direct).await
+        }
+    }
+
+    impl counter::ImplGet for counter::Processor {
+        #[inline(always)]
+        async fn process_any(
+            &mut self,
+            ctx: counter::Context,
+            payload: Box<dyn Any + Send>,
+        ) -> Box<dyn Any + Send> {
+            let req = *payload.downcast::<Request>().unwrap();
+            Box::new(<Self as Process>::process_internal(self, ctx).await)
+        }
+    }
+
+    impl<T: counter::Dispatchable> counter::Counter<T> {
+        #[inline(always)]
+        pub async fn get(&self) -> u32 {
+            let req = Request {};
+            let request = ServifyRequest {
+                kind: counter::Kind::Get,
+                payload: Box::new(req),
+            };
+            *<Self as counter::Dispatchable>::send(self, request)
+                .await
+                .downcast::<u32>()
+                .unwrap()
+        }
+    }
+}
 #[tokio::test]
 async fn main() {
     let counter = counter::Processor { count: 5 };
@@ -182,4 +254,5 @@ async fn main() {
     let client = counter::message_passing::initiate(access);
     assert_eq!(client.increment_and_get(3).await, 8);
     assert_eq!(client.increment_and_get(1).await, 9);
+    assert_eq!(client.get().await, 9);
 }
