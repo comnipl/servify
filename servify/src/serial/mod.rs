@@ -1,11 +1,11 @@
-//! Serial is the data structure used in a transport layer such as String, Binary, etc.
+use std::any::Any;
 
-pub trait ServifyMiddle<T, U, Kind> {
-    fn payload(&self) -> T;
-    fn kind(&self) -> Kind;
-
-    fn from_message(&self, message: ServifySerialMessage<T>) -> Self;
-    fn into_message(self)-> ServifySerialMessage<T>;
+pub struct ServifyMiddle<Kind, Context> {
+    pub ctx: Context,
+    pub request: ServifyRequest<Kind>,
 }
 
-pub struct ServifySerialMessage<T>(T);
+pub struct ServifyRequest<Kind> {
+    pub payload: Box<dyn Any>,
+    pub kind: Kind,
+}
