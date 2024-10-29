@@ -150,9 +150,7 @@ mod counter_increment_and_get {
             amount: u32,
         ) -> u32 {
             match ctx {
-                counter::Context::MessagePassing => {
-
-                },
+                counter::Context::MessagePassing => {}
                 _ => unimplemented!(),
             }
             self.count += amount;
@@ -205,9 +203,7 @@ mod get {
     struct Request {}
 
     trait Process {
-        async fn process_internal(
-            &mut self,
-        ) -> u32;
+        async fn process_internal(&mut self) -> u32;
     }
 
     impl Process for counter::Processor {
