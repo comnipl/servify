@@ -149,6 +149,12 @@ mod counter_increment_and_get {
             ctx: <Self as ServifyProcessor>::Context,
             amount: u32,
         ) -> u32 {
+            match ctx {
+                counter::Context::MessagePassing => {
+
+                },
+                _ => unimplemented!(),
+            }
             self.count += amount;
             self.get().await
         }
@@ -194,19 +200,18 @@ mod get {
     use std::any::Any;
 
     use super::counter;
-    use servify::{processor::ServifyProcessor, serial::ServifyRequest};
+    use servify::serial::ServifyRequest;
 
     struct Request {}
 
     trait Process {
         async fn process_internal(
             &mut self,
-            ctx: <counter::Processor as ServifyProcessor>::Context,
         ) -> u32;
     }
 
     impl Process for counter::Processor {
-        async fn process_internal(&mut self, ctx: <Self as ServifyProcessor>::Context) -> u32 {
+        async fn process_internal(&mut self) -> u32 {
             self.count
         }
     }
@@ -215,7 +220,7 @@ mod get {
         #[allow(unused)]
         #[inline(always)]
         pub async fn get(&mut self) -> u32 {
-            <Self as Process>::process_internal(self, counter::Context::Direct).await
+            <Self as Process>::process_internal(self).await
         }
     }
 
@@ -223,11 +228,11 @@ mod get {
         #[inline(always)]
         async fn process_any(
             &mut self,
-            ctx: counter::Context,
+            _ctx: counter::Context,
             payload: Box<dyn Any + Send>,
         ) -> Box<dyn Any + Send> {
-            let req = *payload.downcast::<Request>().unwrap();
-            Box::new(<Self as Process>::process_internal(self, ctx).await)
+            let _req = *payload.downcast::<Request>().unwrap();
+            Box::new(<Self as Process>::process_internal(self).await)
         }
     }
 
@@ -248,25 +253,24 @@ mod get {
 }
 #[tokio::test]
 async fn main() {
-    let counter = counter::Processor { count: 0 };
-    let (server, access) = counter.launch(32);
+    let (counter_server, counter_access) = counter::Processor { count: 0 }.channel(32);
     tokio::spawn(async move {
-        server.listen().await;
+        counter_server.listen().await;
     });
 
-    let client = counter::message_passing::initiate(access);
+    let counter = counter::message_passing::initiate(counter_access);
 
     let mut set = JoinSet::new();
 
     for _ in 0..10 {
-        let client = client.clone();
+        let counter = counter.clone();
         set.spawn(async move {
             for _ in 0..1000 {
-                client.increment_and_get(1).await;
+                counter.increment_and_get(1).await;
             }
         });
     }
     set.join_all().await;
 
-    assert_eq!(client.get().await, 10000);
+    assert_eq!(counter.get().await, 10000);
 }

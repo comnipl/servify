@@ -17,7 +17,7 @@ pub trait ServifyProcessor: Sized {
         middle: ServifyMiddle<Self::Kind, Self::Context>,
     ) -> impl std::future::Future<Output = Box<dyn Any + Send>>;
 
-    fn launch(self, buffer_size: usize) -> (ServifyService<Self>, ServifyAccess<Self>) {
+    fn channel(self, buffer_size: usize) -> (ServifyService<Self>, ServifyAccess<Self>) {
         let (tx, rx) = tokio::sync::mpsc::channel(buffer_size);
         (
             ServifyService {
