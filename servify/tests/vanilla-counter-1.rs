@@ -1,12 +1,20 @@
-use tokio::{sync::{mpsc, oneshot}, task::JoinSet};
+use tokio::{
+    sync::{mpsc, oneshot},
+    task::JoinSet,
+};
 
 pub struct Processor {
     pub count: u32,
 }
 
 enum Message {
-    IncrementAndGet { amount: u32, reply: oneshot::Sender<u32> },
-    Get { reply: oneshot::Sender<u32> },
+    IncrementAndGet {
+        amount: u32,
+        reply: oneshot::Sender<u32>,
+    },
+    Get {
+        reply: oneshot::Sender<u32>,
+    },
 }
 
 fn spawn(mut rx: mpsc::Receiver<Message>) {
@@ -37,7 +45,12 @@ async fn main() {
         set.spawn(async move {
             for _ in 0..1000 {
                 let (rep_tx, rep_rx) = oneshot::channel();
-                tx.send(Message::IncrementAndGet { amount: 1, reply: rep_tx }).await.unwrap();
+                tx.send(Message::IncrementAndGet {
+                    amount: 1,
+                    reply: rep_tx,
+                })
+                .await
+                .unwrap();
                 rep_rx.await.unwrap();
             }
         });
