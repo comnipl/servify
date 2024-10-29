@@ -3,6 +3,11 @@ use tokio::sync::oneshot;
 use crate::serial::ServifyMiddle;
 use std::any::Any;
 
+pub type ServifyMessage<T> = (
+    ServifyMiddle<<T as ServifyProcessor>::Kind, <T as ServifyProcessor>::Context>,
+    oneshot::Sender<Box<dyn Any + Send>>,
+);
+
 pub trait ServifyProcessor: Sized {
     type Kind;
     type Context;
@@ -26,10 +31,7 @@ pub trait ServifyProcessor: Sized {
 
 pub struct ServifyService<T: ServifyProcessor + Sized> {
     processor: T,
-    rx: tokio::sync::mpsc::Receiver<(
-        ServifyMiddle<T::Kind, T::Context>,
-        oneshot::Sender<Box<dyn Any + Send>>,
-    )>,
+    rx: tokio::sync::mpsc::Receiver<ServifyMessage<T>>,
 }
 
 impl<T: ServifyProcessor + Sized> ServifyService<T> {
@@ -42,10 +44,7 @@ impl<T: ServifyProcessor + Sized> ServifyService<T> {
 }
 
 pub struct ServifyAccess<T: ServifyProcessor + Sized> {
-    pub tx: tokio::sync::mpsc::Sender<(
-        ServifyMiddle<T::Kind, T::Context>,
-        oneshot::Sender<Box<dyn Any + Send>>,
-    )>,
+    pub tx: tokio::sync::mpsc::Sender<ServifyMessage<T>>,
 }
 
 impl<T: ServifyProcessor + Sized> Clone for ServifyAccess<T> {
