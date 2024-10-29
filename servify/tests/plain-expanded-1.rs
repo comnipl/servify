@@ -1,4 +1,5 @@
 use servify::processor::ServifyProcessor as _;
+use tokio::task::JoinSet;
 
 mod counter {
     use servify::processor::ServifyProcessor;
@@ -39,16 +40,17 @@ mod counter {
         fn send(
             &self,
             request: ServifyRequest<Kind>,
-        ) -> Pin<Box<dyn '_ + Future<Output = Box<dyn Any + Send>>>>;
+        ) -> Pin<Box<dyn '_ + Send + Future<Output = Box<dyn Any + Send>>>>;
     }
 
+    #[derive(Clone)]
     pub struct Counter<T: Dispatchable>(T);
 
     impl<T: Dispatchable> Dispatchable for Counter<T> {
         fn send(
             &self,
             request: ServifyRequest<Kind>,
-        ) -> Pin<Box<dyn '_ + Future<Output = Box<dyn Any + Send>>>> {
+        ) -> Pin<Box<dyn '_ + Send + Future<Output = Box<dyn Any + Send>>>> {
             self.0.send(request)
         }
     }
@@ -95,6 +97,7 @@ mod counter {
 
         use super::{Context, Counter, Dispatchable, Kind};
 
+        #[derive(Clone)]
         pub struct MessagePassing {
             access: ServifyAccess<super::Processor>,
         }
@@ -107,7 +110,7 @@ mod counter {
             fn send(
                 &self,
                 request: ServifyRequest<Kind>,
-            ) -> Pin<Box<dyn '_ + Future<Output = Box<dyn Any + Send>>>> {
+            ) -> Pin<Box<dyn '_ + Send + Future<Output = Box<dyn Any + Send>>>> {
                 Box::pin(async move {
                     let (tx, rx) = tokio::sync::oneshot::channel();
                     self.access
@@ -245,14 +248,25 @@ mod get {
 }
 #[tokio::test]
 async fn main() {
-    let counter = counter::Processor { count: 5 };
+    let counter = counter::Processor { count: 0 };
     let (server, access) = counter.launch(32);
     tokio::spawn(async move {
         server.listen().await;
     });
 
     let client = counter::message_passing::initiate(access);
-    assert_eq!(client.increment_and_get(3).await, 8);
-    assert_eq!(client.increment_and_get(1).await, 9);
-    assert_eq!(client.get().await, 9);
+
+    let mut set = JoinSet::new();
+
+    for _ in 0..10 {
+        let client = client.clone();
+        set.spawn(async move {
+            for _ in 0..1000 {
+                client.increment_and_get(1).await;
+            }
+        });
+    }
+    set.join_all().await;
+
+    assert_eq!(client.get().await, 10000);
 }

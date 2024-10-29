@@ -47,3 +47,11 @@ pub struct ServifyAccess<T: ServifyProcessor + Sized> {
         oneshot::Sender<Box<dyn Any + Send>>,
     )>,
 }
+
+impl<T: ServifyProcessor + Sized> Clone for ServifyAccess<T> {
+    fn clone(&self) -> Self {
+        Self {
+            tx: self.tx.clone(),
+        }
+    }
+}
