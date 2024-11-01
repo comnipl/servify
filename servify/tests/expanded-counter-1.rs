@@ -90,7 +90,6 @@ mod counter {
         ) -> Box<dyn Any + Send>;
     }
 
-
     // Modules -
     //   メッセージパッシングやHTTPサーバーなど、異なるリクエストの種類に対して、それぞれの処理を記述するモジュール。
     pub mod message_passing {
