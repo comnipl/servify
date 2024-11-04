@@ -1,0 +1,5 @@
+---
+source: servify_macro/src/export_macro/tests.rs
+expression: "test(quote! {},\n        quote! {\n                impl super::counter\n                {\n                    pub fn increment(&mut self, amount: u32) -> u32\n                    { self.count += amount; self.amount } struct\n                    ThisMustBeUnexpected {};\n                }\n            }).unwrap_err()"
+---
+Failed to parse item: :: core :: compile_error ! { "Supported items within the servify::export macro are only exporting function, associated function, associated constants, and Request struct" }

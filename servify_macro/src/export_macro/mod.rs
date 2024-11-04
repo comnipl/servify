@@ -1,49 +1,61 @@
+mod args;
+mod errors;
 mod tests;
+mod to_token;
 
-use proc_macro2::TokenStream;
-use quote::quote;
+use proc_macro2::Span;
 use syn::parse::{Parse, ParseStream};
-use syn::{Ident, TypePath};
+use syn::{braced, Ident, ImplItemFn, Token, TypePath};
 
-use crate::util::ident_ext::IdentExt as _;
+use crate::export_macro::errors::{
+    ERR_MULTIPLE_FN_IN_EXPORT, ERR_NO_FN_IN_EXPORT, ERR_UNEXPECTED_ITEM_IN_EXPORT,
+};
 
-/// Represents the arguments of the `#[servify::export]` attribute.
-pub(crate) struct ServifyExportArgs {
-    /// The path to the service module.
-    service_module: TypePath,
-}
-
-impl Parse for ServifyExportArgs {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
-        let service_module = input.parse()?;
-        Ok(Self { service_module })
-    }
-}
+pub(crate) use self::args::ServifyExportArgs;
 
 /// Represents the `#[servify::export]` content.
 pub(crate) struct ServifyExport {
+    service_module_path: TypePath,
+    fn_item: ImplItemFn,
     fn_name: Ident,
 }
 
 impl Parse for ServifyExport {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        Ok(Self {
-            fn_name: input.parse()?,
-        })
-    }
-}
+        let content;
+        let mut fn_item = None;
 
-impl ServifyExport {
-    pub(crate) fn to_tokens(self, args: ServifyExportArgs) -> TokenStream {
-        let ServifyExportArgs { service_module } = args;
-        let ServifyExport { fn_name } = self;
+        // Parse head impl block
+        let _: Token![impl] = input.parse()?;
+        let module_path: TypePath = input.parse()?;
+        braced!(content in input);
 
-        let service_module_name = &service_module.path.segments.last().unwrap().ident;
+        // Parse all items in the export block
+        while !content.is_empty() {
+            if let Ok(item) = content.parse::<ImplItemFn>() {
+                if fn_item.is_some() {
+                    return Err(syn::Error::new_spanned(item, ERR_MULTIPLE_FN_IN_EXPORT));
+                }
 
-        let mod_name = Ident::new_with_call_site(&format!("{service_module_name}_{fn_name}"));
+                fn_item.replace(item);
+                continue;
+            }
 
-        quote! {
-            mod #mod_name {  }
+            // Error if there is any other item in the export block
+            return Err(syn::Error::new_spanned(
+                content.parse::<syn::Item>()?,
+                ERR_UNEXPECTED_ITEM_IN_EXPORT,
+            ));
         }
+
+        // Ensure that there is a function in the export block
+        let fn_item =
+            fn_item.ok_or_else(|| syn::Error::new(Span::call_site(), ERR_NO_FN_IN_EXPORT))?;
+
+        Ok(Self {
+            service_module_path: module_path,
+            fn_name: fn_item.sig.ident.clone(),
+            fn_item,
+        })
     }
 }
