@@ -1,6 +1,7 @@
 use proc_macro2::Span;
 use syn::{Ident, PathArguments, PathSegment, TypePath};
 
+#[allow(dead_code)]
 pub(crate) trait TypePathExt {
     fn with_inserted_ident(self, ident: &str, index: usize) -> TypePath;
     fn with_trail_ident(self, ident: &str) -> TypePath;

@@ -2,6 +2,7 @@ use syn::punctuated::Punctuated;
 use syn::token::Paren;
 use syn::{ReturnType, Type, TypeTuple};
 
+#[allow(dead_code)]
 pub(crate) trait ReturnTypeExt {
     fn to_type(self) -> Type;
 }
