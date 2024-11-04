@@ -1,0 +1,5 @@
+---
+source: servify_macro/src/export_macro/tests.rs
+expression: "test(quote! {},\n        quote! {\n                impl super::counter\n                {\n                    pub fn increment(&mut self, amount: u32) -> u32\n                    { self.count += amount; self.amount }\n                }\n            }).unwrap()"
+---
+mod counter_increment {}

@@ -1,2 +1,3 @@
-pub mod return_type_ext;
-pub mod type_path_ext;
+pub(crate) mod ident_ext;
+pub(crate) mod return_type_ext;
+pub(crate) mod type_path_ext;
