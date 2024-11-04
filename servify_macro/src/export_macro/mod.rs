@@ -52,6 +52,8 @@ impl Parse for ServifyExport {
         let fn_item =
             fn_item.ok_or_else(|| syn::Error::new(Span::call_site(), ERR_NO_FN_IN_EXPORT))?;
 
+        // TODO: combine multiple error
+
         Ok(Self {
             service_module_path: module_path,
             fn_name: fn_item.sig.ident.clone(),
