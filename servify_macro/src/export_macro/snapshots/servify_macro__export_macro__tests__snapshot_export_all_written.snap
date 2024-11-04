@@ -1,0 +1,5 @@
+---
+source: servify_macro/src/export_macro/tests.rs
+expression: formatted
+---
+mod counter_get {}
